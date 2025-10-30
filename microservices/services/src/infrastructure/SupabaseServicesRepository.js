@@ -6,9 +6,11 @@ class SupabaseServicesRepository {
   }
 
   async createServicio(servicioData) {
+    const dbMappedData = this.mapToDb(servicioData);
+
     const { data, error } = await this.supabase
       .from('servicios')
-      .insert([servicioData])
+      .insert([dbMappedData])
       .select()
       .single();
 
@@ -16,41 +18,21 @@ class SupabaseServicesRepository {
       throw new Error(`Error creando servicio: ${error.message}`);
     }
 
-    return new Servicio({
-      id: data.id,
-      nombre: data.nombre,
-      descripcion: data.descripcion,
-      precio: data.precio,
-      duracionEstimada: data.duracion_estimada,
-      categoria: data.categoria,
-      activo: data.activo
-    });
+    return this.mapToDomain(data);
   }
 
-  async findServicioById(servicioId) {
+  async findServicioById(idServicio) {
     const { data, error } = await this.supabase
       .from('servicios')
       .select('*')
-      .eq('id', servicioId)
+      .eq('id', idServicio)
       .maybeSingle();
 
     if (error) {
       throw new Error(`Error buscando servicio: ${error.message}`);
     }
 
-    if (!data) {
-      return null;
-    }
-
-    return new Servicio({
-      id: data.id,
-      nombre: data.nombre,
-      descripcion: data.descripcion,
-      precio: data.precio,
-      duracionEstimada: data.duracion_estimada,
-      categoria: data.categoria,
-      activo: data.activo
-    });
+    return this.mapToDomain(data);
   }
 
   async findAllServicios(filters = {}) {

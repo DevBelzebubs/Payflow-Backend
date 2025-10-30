@@ -1,27 +1,25 @@
 class Servicio {
-  constructor({ id, nombre, descripcion, precio, duracionEstimada, categoria, activo }) {
-    this.id = id;
+  constructor({ idServicio, nombre, descripcion, recibo }) {
+    if (!nombre || nombre.trim() === '') {
+      throw new Error('El nombre del servicio no puede estar vacío.');
+    }
+    const montoRecibo = parseFloat(recibo);
+    if (isNaN(montoRecibo) || montoRecibo <= 0) {
+      throw new Error('El recibo (monto) debe ser un número positivo.');
+    }
+
+    this.idServicio = idServicio;
     this.nombre = nombre;
     this.descripcion = descripcion;
-    this.precio = precio;
-    this.duracionEstimada = duracionEstimada;
-    this.categoria = categoria;
-    this.activo = activo;
-  }
-
-  isAvailable() {
-    return this.activo;
+    this.recibo = montoRecibo;
   }
 
   toJSON() {
     return {
-      id: this.id,
+      idServicio: this.idServicio,
       nombre: this.nombre,
       descripcion: this.descripcion,
-      precio: parseFloat(this.precio),
-      duracionEstimada: this.duracionEstimada,
-      categoria: this.categoria,
-      activo: this.activo
+      recibo: parseFloat(this.recibo.toFixed(2)),
     };
   }
 }

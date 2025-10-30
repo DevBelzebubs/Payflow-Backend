@@ -5,19 +5,16 @@ class ServicesController {
 
   async createServicio(req, res) {
     try {
-      const { nombre, descripcion, precio, duracion_estimada, categoria } = req.body;
+      const { nombre, descripcion, recibo } = req.body;
 
-      if (!nombre || !precio) {
-        return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+      if (!nombre || recibo === undefined) {
+        return res.status(400).json({ error: 'Nombre y recibo son requeridos' });
       }
 
       const servicio = await this.servicesService.createServicio({
         nombre,
         descripcion,
-        precio,
-        duracion_estimada,
-        categoria,
-        activo: true
+        recibo
       });
 
       res.status(201).json(servicio.toJSON());
@@ -28,9 +25,9 @@ class ServicesController {
 
   async getServicio(req, res) {
     try {
-      const { servicioId } = req.params;
+      const { idServicio } = req.params;
 
-      const servicio = await this.servicesService.getServicioById(servicioId);
+      const servicio = await this.servicesService.getServicioById(idServicio);
 
       if (!servicio) {
         return res.status(404).json({ error: 'Servicio no encontrado' });
@@ -45,8 +42,6 @@ class ServicesController {
   async getAllServicios(req, res) {
     try {
       const filters = {
-        activo: req.query.activo === 'true' ? true : req.query.activo === 'false' ? false : undefined,
-        categoria: req.query.categoria
       };
 
       const servicios = await this.servicesService.getAllServicios(filters);
@@ -59,10 +54,15 @@ class ServicesController {
 
   async updateServicio(req, res) {
     try {
-      const { servicioId } = req.params;
+      const { idServicio } = req.params;
       const updateData = req.body;
 
-      const servicio = await this.servicesService.updateServicio(servicioId, updateData);
+      if (updateData.precio !== undefined && updateData.recibo === undefined) {
+        updateData.recibo = updateData.precio;
+        delete updateData.precio;
+      }
+
+      const servicio = await this.servicesService.updateServicio(idServicio, updateData);
 
       res.status(200).json(servicio.toJSON());
     } catch (error) {
@@ -72,9 +72,9 @@ class ServicesController {
 
   async deleteServicio(req, res) {
     try {
-      const { servicioId } = req.params;
+      const { idServicio } = req.params;
 
-      await this.servicesService.deleteServicio(servicioId);
+      await this.servicesService.deleteServicio(idServicio);
 
       res.status(204).send();
     } catch (error) {

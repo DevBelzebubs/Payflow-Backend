@@ -2,15 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
-const SqlServerServicesRepository = require('./src/infrastructure/SqlServerServicesRepository');
-const ServicesService = require('./src/application/ServicesService');
-const ServicesController = require('./src/infrastructure/ServicesController');
-
 const app = express();
 const PORT = process.env.SERVICES_PORT || 3004;
 
 app.use(cors());
 app.use(express.json());
+
+const SqlServerServicesRepository = require('./src/infrastructure/SqlServerServicesRepository');
+const ServicesService = require('./src/application/ServicesService');
+const ServicesController = require('./src/infrastructure/ServicesController');
 
 const servicesRepository = new SqlServerServicesRepository();
 const servicesService = new ServicesService(servicesRepository);

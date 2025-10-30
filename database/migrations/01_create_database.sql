@@ -1,9 +1,9 @@
 -- Crear base de datos si no existe
-IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'microservices_db')
+IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'payflow')
 BEGIN
-    CREATE DATABASE microservices_db;
+    CREATE DATABASE payflow;
 END
 GO
 
-USE microservices_db;
+USE payflow;
 GO

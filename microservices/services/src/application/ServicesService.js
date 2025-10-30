@@ -4,23 +4,35 @@ class ServicesService {
   }
 
   async createServicio(servicioData) {
-    return await this.servicesRepository.createServicio(servicioData);
+    const dataToCreate = {
+      nombre: servicioData.nombre,
+      descripcion: servicioData.descripcion,
+      recibo: servicioData.recibo
+    };
+    return await this.servicesRepository.createServicio(dataToCreate);
   }
 
-  async getServicioById(servicioId) {
-    return await this.servicesRepository.findServicioById(servicioId);
+  async getServicioById(idServicio) {
+    return await this.servicesRepository.findServicioById(idServicio);
   }
 
   async getAllServicios(filters = {}) {
-    return await this.servicesRepository.findAllServicios(filters);
+    const adjustedFilters = {};
+    return await this.servicesRepository.findAllServicios(adjustedFilters);
   }
 
-  async updateServicio(servicioId, servicioData) {
-    return await this.servicesRepository.updateServicio(servicioId, servicioData);
+  async updateServicio(idServicio, servicioData) {
+    const dataToUpdate = {};
+    if (servicioData.nombre !== undefined) dataToUpdate.nombre = servicioData.nombre;
+    if (servicioData.descripcion !== undefined) dataToUpdate.descripcion = servicioData.descripcion;
+    if (servicioData.recibo !== undefined) dataToUpdate.recibo = servicioData.recibo;
+
+    return await this.servicesRepository.updateServicio(idServicio, dataToUpdate);
   }
 
-  async deleteServicio(servicioId) {
-    return await this.servicesRepository.deleteServicio(servicioId);
+  async updateServicioStatus(idServicio, status) {
+     console.log(`Lógica de servicio para actualizar estado de ${idServicio} a ${status}`);
+     return await this.getServicioById(idServicio);
   }
 }
 

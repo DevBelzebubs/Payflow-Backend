@@ -1,4 +1,4 @@
-USE microservices_db;
+USE payflow;
 GO
 
 IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'productos')
