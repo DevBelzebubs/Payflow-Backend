@@ -81,6 +81,15 @@ class ServicesController {
       res.status(400).json({ error: error.message });
     }
   }
+  async marcarComoPagado(req, res) {
+    try {
+      const { idServicio } = req.params;
+      const servicio = await this.servicesService.updateServicioStatus(idServicio, 'PAGADO');
+      res.status(200).json(servicio.toJSON());
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = ServicesController;

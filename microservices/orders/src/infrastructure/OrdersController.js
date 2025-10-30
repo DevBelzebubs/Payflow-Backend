@@ -5,21 +5,26 @@ class OrdersController {
 
   async createOrden(req, res) {
     try {
-      const { clienteId, items, notas } = req.body;
+      const { clienteId, items, notas, pagoBcp } = req.body; 
 
-      if (!clienteId || !items || items.length === 0) {
-        return res.status(400).json({ error: 'clienteId e items son requeridos' });
+      if (!clienteId || !items || items.length === 0 || !pagoBcp) {
+        return res.status(400).json({ error: 'clienteId, items y pagoBcp son requeridos' });
+      }
+      
+      if (!pagoBcp.dniCliente || !pagoBcp.numeroCuentaOrigen || !pagoBcp.idPagoBCP) {
+         return res.status(400).json({ error: 'Datos de pagoBcp incompletos (dniCliente, numeroCuentaOrigen, idPagoBCP)' });
       }
 
-      const orden = await this.ordersService.createOrden({
+      const resultado = await this.ordersService.createOrden({
         clienteId,
         items,
         notas
-      });
+      }, pagoBcp);
 
-      res.status(201).json(orden.toJSON());
+      res.status(201).json(resultado);
     } catch (error) {
-      res.status(400).json({ error: error.message });
+      const errorMessage = error.response ? error.response.data.error : error.message;
+      res.status(400).json({ error: errorMessage || "Error al procesar la orden." });
     }
   }
 

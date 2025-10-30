@@ -3,12 +3,20 @@ const sql = require('mssql');
 const config = {
   server: process.env.DB_SERVER || 'localhost',
   database: process.env.DB_DATABASE || 'payflow',
+  port: parseInt(process.env.DB_PORT || '1433'),
+  
+  authentication: {
+    type: 'default',
+    options: {
+      userName: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+    }
+  },
+
   options: {
     encrypt: process.env.DB_ENCRYPT === 'true',
     trustServerCertificate: process.env.DB_TRUST_CERT === 'true' || true,
-    trustedConnection: true
   },
-  port: parseInt(process.env.DB_PORT || '1433'),
   pool: {
     max: 10,
     min: 0,
@@ -21,9 +29,9 @@ let pool = null;
 const getPool = async () => {
   if (!pool) {
     try {
-      console.log('Attempting to connect with Windows Authentication...');
+      console.log(`Attempting to connect to ${config.server} as ${config.user}...`);
       pool = await sql.connect(config);
-      console.log('Successfully connected using Windows Authentication.');
+      console.log('Successfully connected to SQL Server.');
     } catch (err) {
       console.error('Database connection failed:', err);
       throw err;

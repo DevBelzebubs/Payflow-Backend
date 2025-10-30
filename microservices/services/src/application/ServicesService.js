@@ -30,9 +30,9 @@ class ServicesService {
     return await this.servicesRepository.updateServicio(idServicio, dataToUpdate);
   }
 
-  async updateServicioStatus(idServicio, status) {
-     console.log(`Lógica de servicio para actualizar estado de ${idServicio} a ${status}`);
-     return await this.getServicioById(idServicio);
+  async updateServicioStatus(idServicio, estado) {
+     console.log(`Lógica de servicio para actualizar estado de ${idServicio} a ${estado}`);
+     return await this.servicesRepository.updateServicio(idServicio, { estado: estado });
   }
 }
 

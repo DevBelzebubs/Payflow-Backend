@@ -21,6 +21,7 @@ app.get('/api/servicios/:servicioId', (req, res) => servicesController.getServic
 app.get('/api/servicios', (req, res) => servicesController.getAllServicios(req, res));
 app.put('/api/servicios/:servicioId', (req, res) => servicesController.updateServicio(req, res));
 app.delete('/api/servicios/:servicioId', (req, res) => servicesController.deleteServicio(req, res));
+app.patch('/api/servicios/:idServicio/marcar-pagado', (req, res) => servicesController.marcarComoPagado(req, res));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'services' });

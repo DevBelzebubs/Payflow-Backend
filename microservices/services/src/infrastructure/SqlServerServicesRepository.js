@@ -8,14 +8,17 @@ class SqlServerServicesRepository {
       idServicio: dbData.id,
       nombre: dbData.nombre,
       descripcion: dbData.descripcion,
-      recibo: dbData.precio
+      recibo: dbData.precio,
+      estado: dbData.estado
     });
   }
+
   mapToDb(domainData) {
     const dbData = {};
     if (domainData.nombre !== undefined) dbData.nombre = domainData.nombre;
     if (domainData.descripcion !== undefined) dbData.descripcion = domainData.descripcion;
     if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
+    if (domainData.estado !== undefined) dbData.estado = domainData.estado;
     return dbData;
   }
   async createServicio(servicioData) {
@@ -94,7 +97,10 @@ class SqlServerServicesRepository {
         fields.push('precio = @precio');
         request.input('precio', sql.Decimal(10, 2), dbMappedData.precio);
       }
-
+      if (dbMappedData.estado !== undefined) {
+        fields.push('estado = @estado');
+        request.input('estado', sql.NVarChar, dbMappedData.estado);
+      }
       if (fields.length === 0) {
         return await this.findServicioById(idServicio);
       }
