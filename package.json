@@ -4,6 +4,7 @@
   "description": "Backend con arquitectura hexagonal y microservicios",
   "private": true,
   "scripts": {
+    "start:all": "concurrently \"npm run start:gateway\" \"npm run start:auth\" \"npm run start:users\" \"npm run start:products\" \"npm run start:services\" \"npm run start:orders\" \"npm run start:bank-accounts\"",
     "start:auth": "node microservices/auth/index.js",
     "start:users": "node microservices/users/index.js",
     "start:products": "node microservices/products/index.js",
@@ -26,5 +27,8 @@
   "main": "index.js",
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
 }

@@ -2,7 +2,17 @@ class UsersController {
   constructor(usersService) {
     this.usersService = usersService;
   }
-
+  async syncBcpUser(req, res) {
+    try {
+      const bcpUserPayload = req.user;
+      
+      const payflowCliente = await this.usersService.findOrCreateClienteFromBcp(bcpUserPayload);
+      
+      res.status(200).json(payflowCliente.toJSON());
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
   async createCliente(req, res) {
     try {
       const { usuario_id } = req.body;

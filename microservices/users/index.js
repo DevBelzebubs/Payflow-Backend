@@ -1,8 +1,10 @@
-require('dotenv').config();
+require('dotenv').config({ path: '../../.env' });
 const express = require('express');
 const cors = require('cors');
 
+const authMiddleware = require('./src/infrastructure/authMiddleware');
 const SqlServerUsersRepository = require('./src/infrastructure/SqlServerUsersRepository');
+const SqlServerAuthRepository = require('./src/infrastructure/SqlServerAuthRepository');
 const UsersService = require('./src/application/UsersService');
 const UsersController = require('./src/infrastructure/UsersController');
 
@@ -13,9 +15,12 @@ app.use(cors());
 app.use(express.json());
 
 const usersRepository = new SqlServerUsersRepository();
-const usersService = new UsersService(usersRepository);
+const authRepository = new SqlServerAuthRepository();
+
+const usersService = new UsersService(usersRepository,authRepository);
 const usersController = new UsersController(usersService);
 
+app.post('/api/clientes/sync', authMiddleware, (req, res) => usersController.syncBcpUser(req, res));
 app.post('/api/clientes', (req, res) => usersController.createCliente(req, res));
 app.get('/api/clientes/usuario/:usuarioId', (req, res) => usersController.getClienteByUsuario(req, res));
 app.put('/api/clientes/:clienteId', (req, res) => usersController.updateCliente(req, res));

@@ -58,6 +58,15 @@ app.get('/api/auth/verify', async (req, res) => {
   }
 });
 
+app.post('/api/clientes/sync', authMiddleware, async (req, res) => {
+  try {
+    const data = await proxyRequest(USERS_SERVICE_URL, '/api/clientes/sync', 'POST', req.body, req.headers);
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(error.status || 400).json(error);
+  }
+});
+
 app.post('/api/clientes', authMiddleware, async (req, res) => {
   try {
     const data = await proxyRequest(USERS_SERVICE_URL, '/api/clientes', 'POST', req.body, req.headers);
@@ -150,7 +159,7 @@ app.get('/api/servicios', async (req, res) => {
   }
 });
 
-app.get('/api/servicios/:servicioId', async (req, res) => {
+app.get('/api/servicios/:idServicio', async (req, res) => {
   try {
     const data = await proxyRequest(SERVICES_SERVICE_URL, `/api/servicios/${req.params.servicioId}`, 'GET');
     res.status(200).json(data);

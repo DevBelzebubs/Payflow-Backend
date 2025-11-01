@@ -1,5 +1,4 @@
-require('dotenv').config();
-const express = require('express');
+require('dotenv').config({ path: '../../.env' });const express = require('express');
 const cors = require('cors');
 
 const app = express();
@@ -17,10 +16,10 @@ const servicesService = new ServicesService(servicesRepository);
 const servicesController = new ServicesController(servicesService);
 
 app.post('/api/servicios', (req, res) => servicesController.createServicio(req, res));
-app.get('/api/servicios/:servicioId', (req, res) => servicesController.getServicio(req, res));
+app.get('/api/servicios/:idServicio', (req, res) => servicesController.getServicio(req, res));
 app.get('/api/servicios', (req, res) => servicesController.getAllServicios(req, res));
-app.put('/api/servicios/:servicioId', (req, res) => servicesController.updateServicio(req, res));
-app.delete('/api/servicios/:servicioId', (req, res) => servicesController.deleteServicio(req, res));
+app.put('/api/servicios/:idServicio', (req, res) => servicesController.updateServicio(req, res));
+app.delete('/api/servicios/:idServicio', (req, res) => servicesController.deleteServicio(req, res));
 app.patch('/api/servicios/:idServicio/marcar-pagado', (req, res) => servicesController.marcarComoPagado(req, res));
 
 app.get('/health', (req, res) => {

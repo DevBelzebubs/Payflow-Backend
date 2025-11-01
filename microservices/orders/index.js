@@ -1,5 +1,4 @@
-require('dotenv').config();
-const express = require('express');
+require('dotenv').config({ path: '../../.env' });const express = require('express');
 const cors = require('cors');
 
 const SqlServerOrdersRepository = require('./src/infrastructure/SqlServerOrdersRepository');
