@@ -1,13 +1,23 @@
-require('dotenv').config({ path: '../../.env' });
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
+console.log('[Users] Cargando middleware...');
 const authMiddleware = require('./src/infrastructure/authMiddleware');
+
+console.log('[Users] Cargando UserRepo...');
 const SqlServerUsersRepository = require('./src/infrastructure/SqlServerUsersRepository');
+
+console.log('[Users] Cargando AuthRepo...');
 const SqlServerAuthRepository = require('./src/infrastructure/SqlServerAuthRepository');
+
+console.log('[Users] Cargando UserService...');
 const UsersService = require('./src/application/UsersService');
+
+console.log('[Users] Cargando UserController...');
 const UsersController = require('./src/infrastructure/UsersController');
 
+console.log('[Users] Creando app express...');
 const app = express();
 const PORT = process.env.USERS_PORT || 3002;
 

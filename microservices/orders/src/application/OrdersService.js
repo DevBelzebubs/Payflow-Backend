@@ -18,6 +18,7 @@ class OrdersService {
 
     let subtotal = 0;
     let servicioIdParaPagar = null;
+
     for (const item of items) {
       let precio = 0;
 
@@ -26,8 +27,9 @@ class OrdersService {
         precio = response.data.precio;
       } else if (item.servicioId) {
         const response = await axios.get(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}`);
-        precio = response.data.precio;
-        servicioIdParaPagar = this.servicioId;
+        precio = response.data.recibo;
+
+        servicioIdParaPagar = item.servicioId;
       }
 
       item.precioUnitario = precio;
@@ -43,8 +45,9 @@ class OrdersService {
       numeroCuentaOrigen: pagoBcp.numeroCuentaOrigen,
       monto: total,
       idPagoBCP: pagoBcp.idPagoBCP,
-      idServicioPayflow: servicioIdParaPagar
+      idServicioPayflow: servicioIdParaPagar 
     };
+
     let comprobanteBcp;
     try {
       console.log('Enviando solicitud de débito a BCP...');
@@ -58,7 +61,7 @@ class OrdersService {
 
     } catch (error) {
       console.error("Error en la llamada S2S a BCP:", error.response ? error.response.data : error.message);
-      throw new Error(`Error en la pasarela BCP: ${error.response ? error.response.data.error : error.message}`);
+      throw new Error(`Error en la pasarela BCP: ${error.response ? error.response.data.error : "Error desconocido"}`);
     }
 
     const orden = await this.ordersRepository.createOrden({
@@ -80,7 +83,7 @@ class OrdersService {
         subtotal: item.subtotal
       });
 
-      if (item.productoId) {
+      if (item.servicioId) {
         try {
             await axios.patch(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}/marcar-pagado`);
             console.log(`Servicio Payflow ${item.servicioId} marcado como PAGADO.`);
@@ -89,6 +92,7 @@ class OrdersService {
          }
       }
     }
+
     const ordenCompleta = await this.getOrdenById(orden.id);
     return {
         ordenPayflow: ordenCompleta.toJSON(),

@@ -1,4 +1,4 @@
-require('dotenv').config(); // Carga tu archivo .env
+require('dotenv').config({ path: './.env' });
 const { getPool, sql, closePool } = require('./database/sqlServerConfig'); // Llama a tu config
 
 async function testConnection() {

@@ -7,13 +7,17 @@ class OrdersController {
     try {
       const { clienteId, items, notas, pagoBcp } = req.body; 
 
+      const bcpUser = req.user;
+
       if (!clienteId || !items || items.length === 0 || !pagoBcp) {
         return res.status(400).json({ error: 'clienteId, items y pagoBcp son requeridos' });
       }
       
-      if (!pagoBcp.dniCliente || !pagoBcp.numeroCuentaOrigen || !pagoBcp.idPagoBCP) {
-         return res.status(400).json({ error: 'Datos de pagoBcp incompletos (dniCliente, numeroCuentaOrigen, idPagoBCP)' });
+      if (!pagoBcp.numeroCuentaOrigen || !pagoBcp.idPagoBCP) {
+         return res.status(400).json({ error: 'Datos de pagoBcp incompletos (numeroCuentaOrigen, idPagoBCP)' });
       }
+
+      pagoBcp.dniCliente = bcpUser.dni;
 
       const resultado = await this.ordersService.createOrden({
         clienteId,

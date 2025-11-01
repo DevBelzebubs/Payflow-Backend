@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
@@ -6,6 +7,8 @@ const authMiddleware = require('../microservices/auth/src/infrastructure/authMid
 
 const app = express();
 const PORT = process.env.API_GATEWAY_PORT || 3000;
+
+console.log(`[Gateway] ¿Se cargó JWT_SECRET? ${process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 5) + '...' : 'NO (undefined)'}`);
 
 app.use(cors());
 app.use(express.json());
