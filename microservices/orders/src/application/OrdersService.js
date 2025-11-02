@@ -1,19 +1,47 @@
-const axios = require('axios');
+const axios = require("axios");
 
 class OrdersService {
   constructor(ordersRepository) {
     this.ordersRepository = ordersRepository;
-    this.productsServiceUrl = process.env.PRODUCTS_SERVICE_URL || 'http://localhost:3003';
-    this.servicesServiceUrl = process.env.SERVICES_SERVICE_URL || 'http://localhost:3004';
+    this.productsServiceUrl =
+      process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
+    this.servicesServiceUrl =
+      process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
 
-    this.bcpApiUrl = process.env.BCP_API_URL || 'http://localhost:8080/api';
+    this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
     this.serviceToken = process.env.PAYFLOW_SERVICE_TOKEN;
   }
 
   async createOrden(ordenData, pagoBcp) {
+    try {
+      console.log(
+        "[OrdersService] Probando conexión a Java (endpoint /auth)..."
+      );
+      const testUrl = (
+        process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
+      ).replace("/api/s2s", "");
+
+      await axios.get(`${testUrl}/auth/generar-token-servicio`, {
+        timeout: 3000,
+      });
+
+      console.log(
+        "[OrdersService] ¡ÉXITO! La conexión de Node.js a Java (8080) funciona."
+      );
+    } catch (e) {
+      console.error(
+        `[OrdersService] ¡FALLO DE RED! Node.js NO PUEDE conectarse a Java en el puerto 8080.`
+      );
+      console.error(`Error: ${e.message}`);
+      throw new Error(
+        `Fallo de red al conectar con BCP: ${e.message}. Revisa el Firewall.`
+      );
+    }
     const { clienteId, items, notas } = ordenData;
     if (!this.serviceToken) {
-        throw new Error('Configuración: Falta el token de servicio S2S (PAYFLOW_SERVICE_TOKEN) en .env');
+      throw new Error(
+        "Configuración: Falta el token de servicio S2S (PAYFLOW_SERVICE_TOKEN) en .env"
+      );
     }
 
     let subtotal = 0;
@@ -23,10 +51,15 @@ class OrdersService {
       let precio = 0;
 
       if (item.productoId) {
-        const response = await axios.get(`${this.productsServiceUrl}/api/productos/${item.productoId}`);
+        const response = await axios.get(
+          `${this.productsServiceUrl}/api/productos/${item.productoId}`
+        );
         precio = response.data.precio;
       } else if (item.servicioId) {
-        const response = await axios.get(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}`);
+        const response = await axios.get(
+          `${this.servicesServiceUrl}/api/servicios/${item.servicioId}`
+        );
+
         precio = response.data.recibo;
 
         servicioIdParaPagar = item.servicioId;
@@ -45,23 +78,49 @@ class OrdersService {
       numeroCuentaOrigen: pagoBcp.numeroCuentaOrigen,
       monto: total,
       idPagoBCP: pagoBcp.idPagoBCP,
-      idServicioPayflow: servicioIdParaPagar 
+      idServicioPayflow: servicioIdParaPagar,
     };
 
     let comprobanteBcp;
     try {
-      console.log('Enviando solicitud de débito a BCP...');
+      console.log(
+        "[OrdersService] Enviando solicitud de débito a BCP (Java)..."
+      );
+      console.log(debitoRequest);
+
       const bcpResponse = await axios.post(
-        `${this.bcpApiUrl}/pagos/solicitar-debito`, 
-        debitoRequest, 
-        { headers: { 'Authorization': `Bearer ${this.serviceToken}` } }
+        `${this.bcpApiUrl}/pagos/solicitar-debito`,
+        debitoRequest,
+        {
+          headers: { Authorization: `Bearer ${this.serviceToken}` },
+          timeout: 10000,
+        }
       );
       comprobanteBcp = bcpResponse.data;
-      console.log('BCP confirmó el débito.');
-
+      console.log("[OrdersService] BCP confirmó el débito.");
     } catch (error) {
-      console.error("Error en la llamada S2S a BCP:", error.response ? error.response.data : error.message);
-      throw new Error(`Error en la pasarela BCP: ${error.response ? error.response.data.error : "Error desconocido"}`);
+      console.error("--- ¡ERROR EN LA LLAMADA S2S A BCP! ---");
+
+      if (error.code === "ECONNABORTED") {
+        console.error(
+          "Error: Timeout. El servidor de BCP (Java) en 8080 no respondió a tiempo."
+        );
+        throw new Error(
+          "Timeout: El servidor de BCP (Java) no respondió a tiempo. ¿Está corriendo y sin errores?"
+        );
+      }
+      if (error.response) {
+        console.error(
+          "BCP respondió con error:",
+          error.response.status,
+          error.response.data
+        );
+        throw new Error(
+          `Error en la pasarela BCP: ${JSON.stringify(error.response.data)}`
+        );
+      }
+      console.error("Error de red llamando a BCP:", error.message);
+      throw new Error(`Error de red llamando a BCP: ${error.message}`);
     }
 
     const orden = await this.ordersRepository.createOrden({
@@ -69,8 +128,8 @@ class OrdersService {
       total,
       subtotal,
       impuestos,
-      estado: 'CONFIRMADA',
-      notas
+      estado: "CONFIRMADA",
+      notas,
     });
 
     for (const item of items) {
@@ -80,23 +139,29 @@ class OrdersService {
         servicio_id: item.servicioId || null,
         cantidad: item.cantidad,
         precio_unitario: item.precioUnitario,
-        subtotal: item.subtotal
+        subtotal: item.subtotal,
       });
 
       if (item.servicioId) {
         try {
-            await axios.patch(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}/marcar-pagado`);
-            console.log(`Servicio Payflow ${item.servicioId} marcado como PAGADO.`);
-         } catch (e) {
-            console.error(`Error al marcar servicio ${item.servicioId} como pagado: ${e.message}`);
-         }
+          await axios.patch(
+            `${this.servicesServiceUrl}/api/servicios/${item.servicioId}/marcar-pagado`
+          );
+          console.log(
+            `[OrdersService] Servicio Payflow ${item.servicioId} marcado como PAGADO.`
+          );
+        } catch (e) {
+          console.error(
+            `[OrdersService] Error al marcar servicio ${item.servicioId} como pagado: ${e.message}`
+          );
+        }
       }
     }
 
     const ordenCompleta = await this.getOrdenById(orden.id);
     return {
-        ordenPayflow: ordenCompleta.toJSON(),
-        comprobanteBCP: comprobanteBcp
+      ordenPayflow: ordenCompleta.toJSON(),
+      comprobanteBCP: comprobanteBcp,
     };
   }
 
@@ -113,29 +178,36 @@ class OrdersService {
   }
 
   async updateOrdenEstado(ordenId, nuevoEstado) {
-    return await this.ordersRepository.updateOrden(ordenId, { estado: nuevoEstado });
+    return await this.ordersRepository.updateOrden(ordenId, {
+      estado: nuevoEstado,
+    });
   }
 
   async cancelOrden(ordenId) {
     const orden = await this.ordersRepository.findOrdenById(ordenId);
 
     if (!orden) {
-      throw new Error('Orden no encontrada');
+      throw new Error("Orden no encontrada");
     }
 
-    if (orden.estado === 'completada') {
-      throw new Error('No se puede cancelar una orden completada');
+    if (orden.estado === "completada") {
+      throw new Error("No se puede cancelar una orden completada");
     }
 
     for (const item of orden.items) {
       if (item.producto_id) {
-        await axios.patch(`${this.productsServiceUrl}/api/productos/${item.producto_id}/stock`, {
-          cantidad: item.cantidad
-        });
+        await axios.patch(
+          `${this.productsServiceUrl}/api/productos/${item.producto_id}/stock`,
+          {
+            cantidad: item.cantidad,
+          }
+        );
       }
     }
 
-    return await this.ordersRepository.updateOrden(ordenId, { estado: 'cancelada' });
+    return await this.ordersRepository.updateOrden(ordenId, {
+      estado: "cancelada",
+    });
   }
 }
 
