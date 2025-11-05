@@ -20,13 +20,22 @@ const SERVICES_SERVICE_URL = process.env.SERVICES_SERVICE_URL || 'http://localho
 const ORDERS_SERVICE_URL = process.env.ORDERS_SERVICE_URL || 'http://localhost:3005';
 const BANK_ACCOUNTS_SERVICE_URL = process.env.BANK_ACCOUNTS_SERVICE_URL || 'http://localhost:3006';
 
-const proxyRequest = async (serviceUrl, path, method, data, headers) => {
+const proxyRequest = async (serviceUrl, path, method, data, originalHeaders) => {
   try {
+    
+    const headersToSend = {
+      'Content-Type': 'application/json',
+    };
+
+    if (originalHeaders && originalHeaders.authorization) {
+      headersToSend['Authorization'] = originalHeaders.authorization;
+    }
+
     const response = await axios({
       method,
       url: `${serviceUrl}${path}`,
       data,
-      headers
+      headers: headersToSend
     });
     return response.data;
   } catch (error) {
