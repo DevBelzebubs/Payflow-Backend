@@ -12,11 +12,10 @@ async function testConnection() {
     pool = await getPool();
     console.log("\n✅ ¡Conexión exitosa!");
 
-    console.log("\nIntentando consultar la tabla 'servicios'...");
-    const result = await pool.request().query('SELECT TOP 1 * FROM servicios');
-
+    console.log("\nIntentando consultar la tabla 'usuarios'...");
+    const result = await pool.request().query('SELECT TOP 1 * FROM usuarios');
     if (result.recordset.length > 0) {
-      console.log("✅ ¡Consulta exitosa! Se encontró al menos un servicio.");
+      console.log("✅ ¡Consulta exitosa! Se encontró al menos un usuario.");
       console.log(result.recordset[0]);
     } else {
       console.warn("⚠️  La conexión funcionó, pero la tabla 'servicios' está vacía o no existe.");

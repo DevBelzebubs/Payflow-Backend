@@ -4,7 +4,7 @@
   "description": "Backend con arquitectura hexagonal y microservicios",
   "private": true,
   "scripts": {
-    "start:all": "concurrently \"npm run start:gateway\" \"npm run start:auth\" \"npm run start:users\" \"npm run start:products\" \"npm run start:services\" \"npm run start:orders\" \"npm run start:bank-accounts\"",
+    "start:all": "concurrently \"node api-gateway/index.js\" \"node microservices/auth/index.js\" \"node microservices/users/index.js\" \"node microservices/products/index.js\" \"node microservices/services/index.js\" \"node microservices/orders/index.js\" \"node microservices/bank-accounts/index.js\"",
     "start:auth": "node microservices/auth/index.js",
     "start:users": "node microservices/users/index.js",
     "start:products": "node microservices/products/index.js",
