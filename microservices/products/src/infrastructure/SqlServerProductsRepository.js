@@ -5,22 +5,30 @@ class SqlServerProductsRepository {
   async createProducto(productoData) {
     try {
       const pool = await getPool();
-      const result = await pool
-        .request()
+      
+      const hasImage = productoData.imagen_url !== undefined;
+      let query = `
+        INSERT INTO productos (nombre, descripcion, precio, stock, categoria, activo ${hasImage ? ', imagen_url' : ''})
+        OUTPUT INSERTED.*
+        VALUES (@nombre, @descripcion, @precio, @stock, @categoria, @activo ${hasImage ? ', @imagen_url' : ''})
+      `;
+
+      const request = pool.request()
         .input('nombre', sql.NVarChar, productoData.nombre)
         .input('descripcion', sql.NVarChar, productoData.descripcion)
         .input('precio', sql.Decimal(10, 2), productoData.precio)
         .input('stock', sql.Int, productoData.stock)
         .input('categoria', sql.NVarChar, productoData.categoria)
-        .input('activo', sql.Bit, productoData.activo)
-        .query(`
-          INSERT INTO productos (nombre, descripcion, precio, stock, categoria, activo)
-          OUTPUT INSERTED.*
-          VALUES (@nombre, @descripcion, @precio, @stock, @categoria, @activo)
-        `);
+        .input('activo', sql.Bit, productoData.activo);
+
+      if (hasImage) {
+        request.input('imagen_url', sql.NVarChar, productoData.imagen_url);
+      }
+      
+      const result = await request.query(query);
 
       const data = result.recordset[0];
-      return new Producto(data);
+      return new Producto(data); 
     } catch (error) {
       throw new Error(`Error creando producto: ${error.message}`);
     }
@@ -98,6 +106,11 @@ class SqlServerProductsRepository {
       if (productoData.activo !== undefined) {
         fields.push('activo = @activo');
         request.input('activo', sql.Bit, productoData.activo);
+      }
+
+      if (productoData.imagen_url !== undefined) {
+        fields.push('imagen_url = @imagen_url');
+        request.input('imagen_url', sql.NVarChar, productoData.imagen_url);
       }
 
       if (fields.length === 0) {

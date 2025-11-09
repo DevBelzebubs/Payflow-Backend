@@ -22,7 +22,9 @@ class SqlServerAuthRepository extends IAuthRepository {
         passwordHash: data.password_hash,
         nombre: data.nombre,
         telefono: data.telefono,
-        activo: data.activo
+        activo: data.activo,
+        rol: data.rol,
+        dni: data.dni
       });
     } catch (error) {
       throw new Error(`Error buscando usuario: ${error.message}`);
@@ -39,10 +41,12 @@ class SqlServerAuthRepository extends IAuthRepository {
         .input('nombre', sql.NVarChar, userData.nombre)
         .input('telefono', sql.NVarChar, userData.telefono)
         .input('activo', sql.Bit, userData.activo)
+        .input('dni', sql.NVarChar, userData.dni)
+        .input('rol', sql.NVarChar, userData.rol)
         .query(`
-          INSERT INTO usuarios (email, password_hash, nombre, telefono, activo)
+          INSERT INTO usuarios (email, password_hash, nombre, telefono, activo, dni, rol)
           OUTPUT INSERTED.*
-          VALUES (@email, @password_hash, @nombre, @telefono, @activo)
+          VALUES (@email, @password_hash, @nombre, @telefono, @activo, @dni, @rol)
         `);
 
       const data = result.recordset[0];
@@ -52,9 +56,17 @@ class SqlServerAuthRepository extends IAuthRepository {
         passwordHash: data.password_hash,
         nombre: data.nombre,
         telefono: data.telefono,
-        activo: data.activo
+        activo: data.activo,
+        rol: data.rol,
+        dni: data.dni
       });
     } catch (error) {
+      if (error.message.includes('UNIQUE KEY') && error.message.includes('dni')) {
+          throw new Error('El DNI ya está registrado');
+      }
+      if (error.message.includes('UNIQUE KEY') && error.message.includes('email')) {
+          throw new Error('El email ya está registrado');
+      }
       throw new Error(`Error creando usuario: ${error.message}`);
     }
   }
@@ -83,6 +95,14 @@ class SqlServerAuthRepository extends IAuthRepository {
         fields.push('activo = @activo');
         request.input('activo', sql.Bit, userData.activo);
       }
+      if (userData.dni !== undefined) {
+        fields.push('dni = @dni');
+        request.input('dni', sql.NVarChar, userData.dni);
+      }
+      if (userData.rol !== undefined) {
+        fields.push('rol = @rol');
+        request.input('rol', sql.NVarChar, userData.rol);
+      }
 
       if (fields.length === 0) {
         throw new Error('No hay campos para actualizar');
@@ -102,7 +122,9 @@ class SqlServerAuthRepository extends IAuthRepository {
         passwordHash: data.password_hash,
         nombre: data.nombre,
         telefono: data.telefono,
-        activo: data.activo
+        activo: data.activo,
+        rol: data.rol,
+        dni: data.dni
       });
     } catch (error) {
       throw new Error(`Error actualizando usuario: ${error.message}`);

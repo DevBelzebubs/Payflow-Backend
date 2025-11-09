@@ -7,6 +7,7 @@ class Producto {
     this.stock = stock;
     this.categoria = categoria;
     this.activo = activo;
+    this.imagen_url = imagen_url;
   }
 
   isAvailable() {
@@ -21,7 +22,8 @@ class Producto {
       precio: parseFloat(this.precio),
       stock: this.stock,
       categoria: this.categoria,
-      activo: this.activo
+      activo: this.activo,
+      imagen_url: this.imagen_url
     };
   }
 }

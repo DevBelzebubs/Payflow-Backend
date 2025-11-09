@@ -9,7 +9,8 @@ class SqlServerServicesRepository {
       nombre: dbData.nombre,
       descripcion: dbData.descripcion,
       recibo: dbData.precio,
-      estado: dbData.estado
+      estado: dbData.estado,
+      imagenUrl: dbData.imagen_url
     });
   }
 
@@ -19,23 +20,33 @@ class SqlServerServicesRepository {
     if (domainData.descripcion !== undefined) dbData.descripcion = domainData.descripcion;
     if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
     if (domainData.estado !== undefined) dbData.estado = domainData.estado;
+    if (domainData.imagenUrl !== undefined) dbData.imagen_url = domainData.imagenUrl;
     return dbData;
   }
+
   async createServicio(servicioData) {
     try {
       const pool = await getPool();
       const dbMappedData = this.mapToDb(servicioData);
 
-      const result = await pool
-        .request()
+      const hasImage = dbMappedData.imagen_url !== undefined;
+      
+      let query = `
+        INSERT INTO servicios (nombre, descripcion, precio ${hasImage ? ', imagen_url' : ''})
+        OUTPUT INSERTED.*
+        VALUES (@nombre, @descripcion, @precio ${hasImage ? ', @imagen_url' : ''})
+      `;
+
+      const request = pool.request()
         .input('nombre', sql.NVarChar, dbMappedData.nombre)
         .input('descripcion', sql.NVarChar, dbMappedData.descripcion)
-        .input('precio', sql.Decimal(10, 2), dbMappedData.precio)
-        .query(`
-          INSERT INTO servicios (nombre, descripcion, precio) -- Columnas de la tabla
-          OUTPUT INSERTED.*
-          VALUES (@nombre, @descripcion, @precio)
-        `);
+        .input('precio', sql.Decimal(10, 2), dbMappedData.precio);
+
+      if (hasImage) {
+        request.input('imagen_url', sql.NVarChar, dbMappedData.imagen_url);
+      }
+      
+      const result = await request.query(query);
 
       const data = result.recordset[0];
       return this.mapToDomain(data);
@@ -101,13 +112,20 @@ class SqlServerServicesRepository {
         fields.push('estado = @estado');
         request.input('estado', sql.NVarChar, dbMappedData.estado);
       }
+      
+      // <-- AJUSTE 4: Añadir lógica de actualización para imagen_url
+      if (dbMappedData.imagen_url !== undefined) {
+        fields.push('imagen_url = @imagen_url');
+        request.input('imagen_url', sql.NVarChar, dbMappedData.imagen_url);
+      }
+
       if (fields.length === 0) {
         return await this.findServicioById(idServicio);
       }
 
       const result = await request.query(`
         UPDATE servicios
-        SET ${fields.join(', ')}, updated_at = GETDATE() -- Asegúrate que updated_at exista
+        SET ${fields.join(', ')}, updated_at = GETDATE()
         OUTPUT INSERTED.*
         WHERE id = @id
       `);

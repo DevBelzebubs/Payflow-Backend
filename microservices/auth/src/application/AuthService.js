@@ -22,7 +22,9 @@ class AuthService {
       password_hash: passwordHash,
       nombre: userData.nombre,
       telefono: userData.telefono || null,
-      activo: true
+      activo: true,
+      dni: userData.dni,
+      rol: 'CLIENTE'
     };
 
     const user = await this.authRepository.createUser(userToCreate);
@@ -64,7 +66,8 @@ class AuthService {
     return jwt.sign(
       {
         userId: user.id,
-        email: user.email
+        email: user.email,
+        rol:user.rol
       },
       this.JWT_SECRET,
       { expiresIn: this.JWT_EXPIRES_IN }

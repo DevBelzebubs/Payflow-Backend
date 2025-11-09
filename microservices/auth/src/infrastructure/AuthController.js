@@ -5,11 +5,11 @@ class AuthController {
 
   async register(req, res) {
     try {
-      const { email, password, nombre, telefono } = req.body;
+      const { email, password, nombre, telefono, dni } = req.body;
 
-      if (!email || !password || !nombre) {
+      if (!email || !password || !nombre || !dni) {
         return res.status(400).json({
-          error: 'Email, password y nombre son requeridos'
+          error: 'Email, password, nombre y DNI son requeridos'
         });
       }
 
@@ -17,7 +17,8 @@ class AuthController {
         email,
         password,
         nombre,
-        telefono
+        telefono,
+        dni
       });
 
       res.status(201).json(result);

@@ -1,5 +1,5 @@
 class Servicio {
-  constructor({ idServicio, nombre, descripcion, recibo }) {
+  constructor({ idServicio, nombre, descripcion, recibo,imagenURL }) {
     if (!nombre || nombre.trim() === '') {
       throw new Error('El nombre del servicio no puede estar vacío.');
     }
@@ -12,6 +12,7 @@ class Servicio {
     this.nombre = nombre;
     this.descripcion = descripcion;
     this.recibo = montoRecibo;
+    this.imagenURL = imagenURL;
   }
 
   toJSON() {
@@ -20,6 +21,7 @@ class Servicio {
       nombre: this.nombre,
       descripcion: this.descripcion,
       recibo: parseFloat(this.recibo.toFixed(2)),
+      imagenURL: this.imagenURL
     };
   }
 }
