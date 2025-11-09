@@ -5,7 +5,7 @@ class ProductsController {
 
   async createProducto(req, res) {
     try {
-      const { nombre, descripcion, precio, stock, categoria } = req.body;
+      const { nombre, descripcion, precio, stock, categoria, imagen_url } = req.body;
 
       if (!nombre || !precio) {
         return res.status(400).json({ error: 'Nombre y precio son requeridos' });
@@ -17,7 +17,8 @@ class ProductsController {
         precio,
         stock: stock || 0,
         categoria,
-        activo: true
+        activo: true,
+        imagen_url
       });
 
       res.status(201).json(producto.toJSON());
