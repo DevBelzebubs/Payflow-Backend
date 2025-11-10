@@ -1,6 +1,11 @@
 const Servicio = require('../domain/Servicio');
 const { getPool, sql } = require('../../../../database/sqlServerConfig');
 
+const serviceFields = [
+  'nombre', 'descripcion', 'precio', 'estado', 'imagen_url', 
+  'tipo_servicio', 'sinopsis', 'fecha_evento', 'video_url', 
+  'proveedor', 'rating', 'info_adicional_json'
+];
 class SqlServerServicesRepository {
   mapToDomain(dbData) {
     if (!dbData) return null;
@@ -10,7 +15,15 @@ class SqlServerServicesRepository {
       descripcion: dbData.descripcion,
       recibo: dbData.precio,
       estado: dbData.estado,
-      imagenUrl: dbData.imagen_url
+      imagenURL: dbData.imagen_url,
+      activo: dbData.activo,
+      tipo_servicio: dbData.tipo_servicio,
+      sinopsis: dbData.sinopsis,
+      fecha_evento: dbData.fecha_evento,
+      video_url: dbData.video_url,
+      proveedor: dbData.proveedor,
+      rating: dbData.rating,
+      info_adicional_json: dbData.info_adicional_json ? JSON.parse(dbData.info_adicional_json) : null
     });
   }
 
@@ -21,6 +34,21 @@ class SqlServerServicesRepository {
     if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
     if (domainData.estado !== undefined) dbData.estado = domainData.estado;
     if (domainData.imagenUrl !== undefined) dbData.imagen_url = domainData.imagenUrl;
+    if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
+    const fieldsToMap = [
+      'nombre', 'descripcion', 'estado', 'imagen_url', 
+      'tipo_servicio', 'sinopsis', 'fecha_evento', 'video_url', 
+      'proveedor', 'rating'
+    ];
+
+    fieldsToMap.forEach(field => {
+      if (domainData[field] !== undefined) dbData[field] = domainData[field];
+    });
+
+    if (domainData.info_adicional_json !== undefined) {
+      dbData.info_adicional_json = JSON.stringify(domainData.info_adicional_json);
+    }
+
     return dbData;
   }
 
@@ -28,23 +56,24 @@ class SqlServerServicesRepository {
     try {
       const pool = await getPool();
       const dbMappedData = this.mapToDb(servicioData);
-
+      const columns = Object.keys(dbMappedData);
+      const values = columns.map(col => `@${col}`);
       const hasImage = dbMappedData.imagen_url !== undefined;
-      
       let query = `
-        INSERT INTO servicios (nombre, descripcion, precio ${hasImage ? ', imagen_url' : ''})
+        INSERT INTO servicios (${columns.join(', ')})
         OUTPUT INSERTED.*
-        VALUES (@nombre, @descripcion, @precio ${hasImage ? ', @imagen_url' : ''})
+        VALUES (${values.join(', ')})
       `;
 
-      const request = pool.request()
-        .input('nombre', sql.NVarChar, dbMappedData.nombre)
-        .input('descripcion', sql.NVarChar, dbMappedData.descripcion)
-        .input('precio', sql.Decimal(10, 2), dbMappedData.precio);
-
-      if (hasImage) {
-        request.input('imagen_url', sql.NVarChar, dbMappedData.imagen_url);
-      }
+      const request = pool.request();
+      
+      columns.forEach(col => {
+        let type = sql.NVarChar;
+        if (col === 'precio') type = sql.Decimal(10, 2);
+        if (col === 'rating') type = sql.Decimal(3, 2);
+        if (col === 'fecha_evento') type = sql.DateTime2;
+        request.input(col, type, dbMappedData[col]);
+      });       
       
       const result = await request.query(query);
 
@@ -96,28 +125,16 @@ class SqlServerServicesRepository {
       const request = pool.request();
       request.input('id', sql.UniqueIdentifier, idServicio);
 
-      if (dbMappedData.nombre !== undefined) {
-        fields.push('nombre = @nombre');
-        request.input('nombre', sql.NVarChar, dbMappedData.nombre);
-      }
-      if (dbMappedData.descripcion !== undefined) {
-        fields.push('descripcion = @descripcion');
-        request.input('descripcion', sql.NVarChar, dbMappedData.descripcion);
-      }
-      if (dbMappedData.precio !== undefined) {
-        fields.push('precio = @precio');
-        request.input('precio', sql.Decimal(10, 2), dbMappedData.precio);
-      }
-      if (dbMappedData.estado !== undefined) {
-        fields.push('estado = @estado');
-        request.input('estado', sql.NVarChar, dbMappedData.estado);
-      }
-      
-      // <-- AJUSTE 4: Añadir lógica de actualización para imagen_url
-      if (dbMappedData.imagen_url !== undefined) {
-        fields.push('imagen_url = @imagen_url');
-        request.input('imagen_url', sql.NVarChar, dbMappedData.imagen_url);
-      }
+      Object.keys(dbMappedData).forEach(col => {
+        fields.push(`${col} = @${col}`);
+        
+        let type = sql.NVarChar;
+        if (col === 'precio') type = sql.Decimal(10, 2);
+        if (col === 'rating') type = sql.Decimal(3, 2);
+        if (col === 'fecha_evento') type = sql.DateTime2;
+        
+        request.input(col, type, dbMappedData[col]);
+      });
 
       if (fields.length === 0) {
         return await this.findServicioById(idServicio);
@@ -136,7 +153,6 @@ class SqlServerServicesRepository {
       throw new Error(`Error actualizando servicio: ${error.message}`);
     }
   }
-
   async deleteServicio(idServicio) {
     try {
       const pool = await getPool();

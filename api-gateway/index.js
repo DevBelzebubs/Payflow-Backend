@@ -194,7 +194,7 @@ try {
   
   app.get('/api/servicios/:idServicio', async (req, res) => {
     try {
-      const data = await proxyRequest(SERVICES_SERVICE_URL, `/api/servicios/${req.params.servicioId}`, 'GET');
+      const data = await proxyRequest(SERVICES_SERVICE_URL, `/api/servicios/${req.params.idServicio}`, 'GET');
       res.status(200).json(data);
     } catch (error) {
       console.error("[Gateway] Error en /api/servicios/:idServicio (GET):", error);
