@@ -5,7 +5,11 @@ class ProductsController {
 
   async createProducto(req, res) {
     try {
-      const { nombre, descripcion, precio, stock, categoria, imagen_url } = req.body;
+      // --- AJUSTE: Extraer los nuevos campos del body ---
+      const { 
+        nombre, descripcion, precio, stock, categoria, imagen_url, 
+        marca, especificaciones 
+      } = req.body;
 
       if (!nombre || !precio) {
         return res.status(400).json({ error: 'Nombre y precio son requeridos' });
@@ -18,7 +22,9 @@ class ProductsController {
         stock: stock || 0,
         categoria,
         activo: true,
-        imagen_url
+        imagen_url,
+        marca,
+        especificaciones 
       });
 
       res.status(201).json(producto.toJSON());
@@ -30,13 +36,10 @@ class ProductsController {
   async getProducto(req, res) {
     try {
       const { productoId } = req.params;
-
       const producto = await this.productsService.getProductoById(productoId);
-
       if (!producto) {
         return res.status(404).json({ error: 'Producto no encontrado' });
       }
-
       res.status(200).json(producto.toJSON());
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -62,9 +65,7 @@ class ProductsController {
     try {
       const { productoId } = req.params;
       const updateData = req.body;
-
       const producto = await this.productsService.updateProducto(productoId, updateData);
-
       res.status(200).json(producto.toJSON());
     } catch (error) {
       res.status(400).json({ error: error.message });
