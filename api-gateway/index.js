@@ -26,12 +26,13 @@ try {
   const proxyRequest = async (serviceUrl, path, method, data, originalHeaders) => {
     try {
       
-      const headersToSend = {
-        'Content-Type': 'application/json',
-      };
+      const headersToSend = {};
   
       if (originalHeaders && originalHeaders.authorization) {
         headersToSend['Authorization'] = originalHeaders.authorization;
+      }
+      if (data) {
+        headersToSend['Content-Type'] = 'application/json';
       }
   
       const response = await axios({
@@ -101,9 +102,9 @@ try {
     }
   });
   
-  app.get('/api/clientes/:usuarioId', authMiddleware, async (req, res) => {
+  app.get('/api/clientes/usuario/:usuarioId', authMiddleware, async (req, res) => {
     try {
-      const data = await proxyRequest(USERS_SERVICE_URL, `/api/clientes/usuario/${req.params.usuarioId}`, 'GET', null, req.headers);
+      const data = await proxyRequest(USERS_SERVICE_URL, req.path, 'GET', null, req.headers);
       res.status(200).json(data);
     } catch (error) {
       console.error("[Gateway] Error en /api/clientes/:usuarioId (GET):", error);
