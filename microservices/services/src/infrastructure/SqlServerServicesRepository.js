@@ -106,8 +106,18 @@ class SqlServerServicesRepository {
   async findAllServicios(filters = {}) {
     try {
       const pool = await getPool();
-      let query = 'SELECT * FROM servicios WHERE 1=1';
+      let query = 'SELECT * FROM servicios WHERE activo = 1';
       const request = pool.request();
+      if(filters.clienteId){
+        query += ' AND (cliente_id IS NULL OR cliente_id = @cliente_id)';
+        request.input('cliente_id',sql.UniqueIdentifier,filters.clienteId)
+      }else{
+        query += 'AND cliente_id IS NULL';
+      }
+      if(filters.tipo_servicio){
+        query += 'AND tipo_servicio = @tipo_servicio';
+        request.input('tipo_servicio',sql.NVarChar,filters.tipo_servicio);
+      }
 
       const result = await request.query(query);
       return result.recordset.map(item => this.mapToDomain(item));
