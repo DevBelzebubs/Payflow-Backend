@@ -4,8 +4,12 @@ const jwt = require('jsonwebtoken');
 class AuthService {
   constructor(authRepository) {
     this.authRepository = authRepository;
-    this.JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+    this.JWT_SECRET = process.env.JWT_SECRET;
+
     this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
+    if (!this.JWT_SECRET) {
+      throw new Error("¡JWT_SECRET no está definido en .env! El servicio de Auth no puede iniciar.");
+    }
   }
 
   async register(userData) {

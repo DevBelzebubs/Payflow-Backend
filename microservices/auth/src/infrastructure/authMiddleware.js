@@ -1,7 +1,6 @@
 const jwt = require('jsonwebtoken');
 
 const authMiddleware = (req, res, next) => {
-  // Log 1: Ver qué proceso está usando este middleware
   const processName = process.env.API_GATEWAY_PORT ? '[Gateway]' : '[AuthService]';
 
   try {
@@ -13,8 +12,6 @@ const authMiddleware = (req, res, next) => {
       console.error(`${processName} Middleware: Error - Token no proporcionado.`);
       return res.status(401).json({ error: 'Token no proporcionado' });
     }
-
-    // Log 2: Ver la clave secreta que se está usando
     const JWT_SECRET = process.env.JWT_SECRET;
     if (!JWT_SECRET) {
          console.error(`${processName} Middleware: Error - ¡JWT_SECRET es UNDEFINED!`);
