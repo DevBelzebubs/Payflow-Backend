@@ -1,6 +1,15 @@
 class BankAccountsService {
   constructor(bankAccountsRepository) {
     this.bankAccountsRepository = bankAccountsRepository;
+    this.bcpApiURL = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
+    this.bcpAuthUrl = (process.env.BCP_API_URL || "http://localhost:8080/api/s2s")
+      .replace("/api/s2s", "/auth/generar-token-servicio");
+
+    this.serviceTokenCache = {
+      token: null,
+      isFetching: false,
+    };
+
   }
 
   async createCuentaBancaria(cuentaData) {

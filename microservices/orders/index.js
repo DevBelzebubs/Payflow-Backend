@@ -1,6 +1,4 @@
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
-
+require('../../database/sqlServerConfig');
 const express = require('express');
 const cors = require('cors');
 const authMiddleware = require('../auth/src/infrastructure/authMiddleware');

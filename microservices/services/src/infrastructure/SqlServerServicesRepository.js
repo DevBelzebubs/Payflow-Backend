@@ -1,11 +1,6 @@
 const Servicio = require('../domain/Servicio');
 const { getPool, sql } = require('../../../../database/sqlServerConfig');
 
-const serviceFields = [
-  'nombre', 'descripcion', 'precio', 'estado', 'imagen_url', 
-  'tipo_servicio', 'sinopsis', 'fecha_evento', 'video_url', 
-  'proveedor', 'rating', 'info_adicional_json'
-];
 class SqlServerServicesRepository {
   mapToDomain(dbData) {
     if (!dbData) return null;
@@ -23,7 +18,8 @@ class SqlServerServicesRepository {
       video_url: dbData.video_url,
       proveedor: dbData.proveedor,
       rating: dbData.rating,
-      info_adicional_json: dbData.info_adicional_json ? JSON.parse(dbData.info_adicional_json) : null
+      info_adicional_json: dbData.info_adicional_json ? JSON.parse(dbData.info_adicional_json) : null,
+      cliente_id: dbData.cliente_id
     });
   }
 
@@ -33,22 +29,19 @@ class SqlServerServicesRepository {
     if (domainData.descripcion !== undefined) dbData.descripcion = domainData.descripcion;
     if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
     if (domainData.estado !== undefined) dbData.estado = domainData.estado;
-    if (domainData.imagenUrl !== undefined) dbData.imagen_url = domainData.imagenUrl;
-    if (domainData.recibo !== undefined) dbData.precio = domainData.recibo;
-    const fieldsToMap = [
-      'nombre', 'descripcion', 'estado', 'imagen_url', 
-      'tipo_servicio', 'sinopsis', 'fecha_evento', 'video_url', 
-      'proveedor', 'rating'
-    ];
-
-    fieldsToMap.forEach(field => {
-      if (domainData[field] !== undefined) dbData[field] = domainData[field];
-    });
-
+    if (domainData.imagenURL !== undefined) dbData.imagen_url = domainData.imagenURL; 
+    if (domainData.activo !== undefined) dbData.activo = domainData.activo;
+    if (domainData.tipo_servicio !== undefined) dbData.tipo_servicio = domainData.tipo_servicio;
+    if (domainData.sinopsis !== undefined) dbData.sinopsis = domainData.sinopsis;
+    if (domainData.fecha_evento !== undefined) dbData.fecha_evento = domainData.fecha_evento;
+    if (domainData.video_url !== undefined) dbData.video_url = domainData.video_url;
+    if (domainData.proveedor !== undefined) dbData.proveedor = domainData.proveedor;
+    if (domainData.rating !== undefined) dbData.rating = domainData.rating;
+    if (domainData.cliente_id !== undefined) dbData.cliente_id = domainData.cliente_id;
+    
     if (domainData.info_adicional_json !== undefined) {
       dbData.info_adicional_json = JSON.stringify(domainData.info_adicional_json);
     }
-
     return dbData;
   }
 
@@ -56,9 +49,10 @@ class SqlServerServicesRepository {
     try {
       const pool = await getPool();
       const dbMappedData = this.mapToDb(servicioData);
+      
       const columns = Object.keys(dbMappedData);
       const values = columns.map(col => `@${col}`);
-      const hasImage = dbMappedData.imagen_url !== undefined;
+
       let query = `
         INSERT INTO servicios (${columns.join(', ')})
         OUTPUT INSERTED.*
@@ -72,13 +66,15 @@ class SqlServerServicesRepository {
         if (col === 'precio') type = sql.Decimal(10, 2);
         if (col === 'rating') type = sql.Decimal(3, 2);
         if (col === 'fecha_evento') type = sql.DateTime2;
+        if (col === 'activo') type = sql.Bit;
+        if (col === 'cliente_id') type = sql.UniqueIdentifier;
+        
         request.input(col, type, dbMappedData[col]);
-      });       
+      });
       
       const result = await request.query(query);
+      return this.mapToDomain(result.recordset[0]);
 
-      const data = result.recordset[0];
-      return this.mapToDomain(data);
     } catch (error) {
       throw new Error(`Error creando servicio: ${error.message}`);
     }
@@ -90,14 +86,12 @@ class SqlServerServicesRepository {
       const result = await pool
         .request()
         .input('id', sql.UniqueIdentifier, idServicio)
-        .query('SELECT * FROM servicios WHERE id = @id');
+        .query('SELECT * FROM servicios WHERE id = @id'); 
 
       if (result.recordset.length === 0) {
         return null;
       }
-
-      const data = result.recordset[0];
-      return this.mapToDomain(data);
+      return this.mapToDomain(result.recordset[0]);
     } catch (error) {
       throw new Error(`Error buscando servicio: ${error.message}`);
     }
@@ -106,17 +100,19 @@ class SqlServerServicesRepository {
   async findAllServicios(filters = {}) {
     try {
       const pool = await getPool();
-      let query = 'SELECT * FROM servicios WHERE activo = 1';
+      let query = 'SELECT * FROM servicios WHERE activo = 1'; 
       const request = pool.request();
-      if(filters.clienteId){
+
+      if (filters.clienteId) {
         query += ' AND (cliente_id IS NULL OR cliente_id = @cliente_id)';
-        request.input('cliente_id',sql.UniqueIdentifier,filters.clienteId)
-      }else{
-        query += 'AND cliente_id IS NULL';
+        request.input('cliente_id', sql.UniqueIdentifier, filters.clienteId);
+      } else {
+        query += ' AND cliente_id IS NULL';
       }
-      if(filters.tipo_servicio){
-        query += 'AND tipo_servicio = @tipo_servicio';
-        request.input('tipo_servicio',sql.NVarChar,filters.tipo_servicio);
+      
+      if (filters.tipo_servicio) {
+         query += ' AND tipo_servicio = @tipo_servicio';
+         request.input('tipo_servicio', sql.NVarChar, filters.tipo_servicio);
       }
 
       const result = await request.query(query);
@@ -134,7 +130,7 @@ class SqlServerServicesRepository {
       const fields = [];
       const request = pool.request();
       request.input('id', sql.UniqueIdentifier, idServicio);
-
+      
       Object.keys(dbMappedData).forEach(col => {
         fields.push(`${col} = @${col}`);
         
@@ -142,7 +138,9 @@ class SqlServerServicesRepository {
         if (col === 'precio') type = sql.Decimal(10, 2);
         if (col === 'rating') type = sql.Decimal(3, 2);
         if (col === 'fecha_evento') type = sql.DateTime2;
-        
+        if (col === 'activo') type = sql.Bit;
+        if (col === 'cliente_id') type = sql.UniqueIdentifier;
+
         request.input(col, type, dbMappedData[col]);
       });
 
@@ -157,12 +155,12 @@ class SqlServerServicesRepository {
         WHERE id = @id
       `);
 
-      const data = result.recordset[0];
-      return this.mapToDomain(data);
+      return this.mapToDomain(result.recordset[0]);
     } catch (error) {
       throw new Error(`Error actualizando servicio: ${error.message}`);
     }
   }
+
   async deleteServicio(idServicio) {
     try {
       const pool = await getPool();

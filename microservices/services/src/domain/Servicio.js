@@ -1,5 +1,5 @@
 class Servicio {
-  constructor({ idServicio, nombre, descripcion, recibo,imagenURL, tipo_servicio, sinopsis, fecha_evento, video_url, proveedor, rating, info_adicional_json,activo }) {
+  constructor({ idServicio, nombre, descripcion, recibo,imagenURL, tipo_servicio, sinopsis, fecha_evento, video_url, proveedor, rating, info_adicional_json,activo,cliente_id }) {
     if (!nombre || nombre.trim() === '') {
       throw new Error('El nombre del servicio no puede estar vacío.');
     }
@@ -20,8 +20,8 @@ class Servicio {
     this.proveedor = proveedor;
     this.rating = rating ? parseFloat(rating) : null;
     this.info_adicional_json = info_adicional_json || null;
-
     this.activo = activo;
+    this.cliente_id = cliente_id;
   }
 
   toJSON() {
@@ -38,7 +38,8 @@ class Servicio {
       proveedor: this.proveedor,
       rating: this.rating,
       info_adicional_json: this.info_adicional_json,
-      activo: this.activo
+      activo: this.activo,
+      cliente_id: this.cliente_id
     };
   }
 }
