@@ -2,7 +2,14 @@ class BankAccountsController {
   constructor(bankAccountsService) {
     this.bankAccountsService = bankAccountsService;
   }
-
+  async getMyUnifiedAccounts(req, res) {
+    try {
+      const cuentas = await this.bankAccountsService.getMyUnifiedAccounts(req.user);
+      res.status(200).json(cuentas);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
   async createCuentaBancaria(req, res) {
     try {
       const { cliente_id, banco, numero_cuenta, tipo_cuenta, titular } = req.body;

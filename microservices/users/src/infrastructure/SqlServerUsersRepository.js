@@ -3,13 +3,13 @@ const Administrador = require('../domain/Administrador');
 const { getPool, sql } = require('../../../../database/sqlServerConfig');
 
 class SqlServerUsersRepository {
-  async createCliente(clienteData) {
+  async createCliente(payflowUser) {
     try {
       const pool = await getPool();
 
       const resultCliente = await pool
         .request()
-        .input('usuario_id', sql.UniqueIdentifier, clienteData.usuario_id)
+        .input('usuario_id', sql.UniqueIdentifier, payflowUser.id)
         .query(`
           INSERT INTO clientes (usuario_id) 
           OUTPUT INSERTED.id, INSERTED.usuario_id, INSERTED.created_at
@@ -18,29 +18,18 @@ class SqlServerUsersRepository {
 
       const dataCliente = resultCliente.recordset[0];
 
-      const resultUsuario = await pool
-        .request()
-        .input('id', sql.UniqueIdentifier, dataCliente.usuario_id)
-        .query(`
-          SELECT id, nombre, email, telefono
-          FROM usuarios 
-          WHERE id = @id
-        `);
-
-      const dataUsuario = resultUsuario.recordset[0];
-
       return new Cliente({
         id: dataCliente.id,
         fechaRegistro: dataCliente.created_at,
-        usuarioId: dataUsuario.id,
-        nombre: dataUsuario.nombre,
-        correo: dataUsuario.email,
-        telefono: dataUsuario.telefono
+        usuarioId: payflowUser.id,
+        nombre: payflowUser.nombre,
+        correo: payflowUser.email,
+        telefono: payflowUser.telefono
       });
 
     } catch (error) {
       if (error.message.includes('UNIQUE KEY') || error.message.includes('FOREIGN KEY')) {
-        throw new Error(`El usuario con ID ${clienteData.usuario_id} ya es un cliente o no existe.`);
+        throw new Error(`El usuario con ID ${payflowUser.id} ya es un cliente o no existe.`);
       }
       throw new Error(`Error creando cliente: ${error.message}`);
     }

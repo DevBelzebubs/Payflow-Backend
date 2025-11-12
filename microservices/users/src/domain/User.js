@@ -1,5 +1,5 @@
 class User {
-  constructor({ id, email, passwordHash, nombre, telefono, activo, dni }) {
+  constructor({ id, email, passwordHash, nombre, telefono, activo,rol, dni }) {
     this.id = id;
     this.email = email;
     this.passwordHash = passwordHash;

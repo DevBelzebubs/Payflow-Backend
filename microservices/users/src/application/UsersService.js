@@ -1,5 +1,5 @@
 class UsersService {
-  constructor(usersRepository,authRepository) {
+  constructor(usersRepository, authRepository) {
     this.usersRepository = usersRepository;
     this.authRepository = authRepository;
   }
@@ -9,29 +9,42 @@ class UsersService {
     if (!email) {
       throw new Error("El token JWT de BCP no contiene el claim 'email'.");
     }
-
+    if (!dni) {
+      throw new Error("El token JWT de BCP no contiene el claim 'dni'.");
+    }
     let payflowUser = await this.authRepository.findUserByEmail(email);
 
     if (!payflowUser) {
       console.log(`Usuario de BCP no encontrado (${email}). Creando...`);
       const newUserPayload = {
         email: email,
-        password_hash: 'SSO_BCP_USER',
+        password_hash: "SSO_BCP_USER",
         nombre: nombreCompleto,
         telefono: telefono,
-        activo: true
+        activo: true,
+        dni: dni,
+        rol: "CLIENTE",
       };
-      payflowUser = await this.authRepository.createUser(newUserPayload);
+      try {
+        payflowUser = await this.authRepository.createUser(newUserPayload);
+      } catch (createError) {
+        console.error(
+          `[UsersService] Fallo al crear usuario: ${createError.message}`
+        );
+        throw new Error(
+          `Fallo de SQL al crear usuario: ${createError.message}`
+        );
+      }
     }
 
-    let payflowCliente = await this.usersRepository.findClienteByUsuarioId(payflowUser.id);
+    let payflowCliente = await this.usersRepository.findClienteByUsuarioId(
+      payflowUser.id
+    );
 
     if (!payflowCliente) {
       console.log(`Perfil de Cliente no encontrado para ${email}. Creando...`);
-      const newClientePayload = {
-        usuario_id: payflowUser.id
-      };
-      payflowCliente = await this.usersRepository.createCliente(newClientePayload);
+
+      payflowCliente = await this.usersRepository.createCliente(payflowUser);
     }
     return payflowCliente;
   }
