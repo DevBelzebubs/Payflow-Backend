@@ -1,5 +1,5 @@
 class CuentaBancaria {
-  constructor({ id, clienteId, banco, numeroCuenta, tipoCuenta, titular, activo, createdAt }) {
+  constructor({ id, clienteId, banco, numeroCuenta, tipoCuenta, titular, activo, createdAt,saldo }) {
     this.id = id;
     this.clienteId = clienteId;
     this.banco = banco;
@@ -8,6 +8,7 @@ class CuentaBancaria {
     this.titular = titular;
     this.activo = activo;
     this.createdAt = createdAt;
+    this.saldo = saldo;
   }
 
   getMaskedNumber() {
@@ -26,7 +27,8 @@ class CuentaBancaria {
       tipoCuenta: this.tipoCuenta,
       titular: this.titular,
       activo: this.activo,
-      createdAt: this.createdAt
+      createdAt: this.createdAt,
+      saldo: this.saldo
     };
   }
 }

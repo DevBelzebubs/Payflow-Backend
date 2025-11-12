@@ -93,27 +93,42 @@ class OrdersService {
     }
 
     const { clienteId, items, notas } = ordenData;
+    const mainItem = items[0];
+    
+    let esProductoPayflow = !!mainItem.productoId;
+    let esServicioBCP = !!mainItem.servicioId && !!datosPago.idPagoBCP;
 
     let subtotal = 0;
     let servicioIdParaPagar = null;
+    let descripcionCompra = "Compra en Payflow";
+    if (esServicioBCP) {
+        if (!datosPago.monto) {
+            throw new Error("Para pagos de servicios BCP, 'datosPago.monto' es requerido (Error de Servicio).");
+        }
+        subtotal = datosPago.monto;
+        servicioIdParaPagar = mainItem.servicioId;
+        descripcionCompra = `1x Servicio BCP (ID: ${mainItem.servicioId})`;
 
-    for (const item of items) {
-      let precio = 0;
-      if (item.productoId) {
-        const response = await axios.get(
-          `${this.productsServiceUrl}/api/productos/${item.productoId}`
-        );
-        precio = response.data.precio;
-      } else if (item.servicioId) {
-        const response = await axios.get(
-          `${this.servicesServiceUrl}/api/servicios/${item.servicioId}`
-        );
-        precio = response.data.recibo;
-        servicioIdParaPagar = item.servicioId;
-      }
-      item.precioUnitario = precio;
-      item.subtotal = precio * item.cantidad;
-      subtotal += item.subtotal;
+        mainItem.precioUnitario = subtotal / mainItem.cantidad;
+        mainItem.subtotal = subtotal;
+    } else {
+        for (const item of items) {
+            let precio = 0;
+            if (item.productoId) {
+                const response = await axios.get(`${this.productsServiceUrl}/api/productos/${item.productoId}`);
+                precio = response.data.precio;
+                descripcionCompra = `1x Producto Payflow (ID: ${item.productoId})`;
+            } else if (item.servicioId) {
+                const response = await axios.get(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}`);
+                precio = response.data.recibo;
+                servicioIdParaPagar = item.servicioId;
+                descripcionCompra = `1x Servicio Payflow (ID: ${item.servicioId})`;
+            }
+            
+            item.precioUnitario = precio;
+            item.subtotal = precio * item.cantidad;
+            subtotal += item.subtotal;
+        }
     }
 
     const impuestos = subtotal * 0.16;
@@ -123,54 +138,63 @@ class OrdersService {
 
     if (datosPago.origen === 'BCP') {
       console.log("[OrdersService] Procesando pago vía BCP S2S...");
-
-      const debitoRequest = {
-        dniCliente: datosPago.dniCliente,
-        numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
-        monto: subtotal,
-        idPagoBCP: datosPago.idPagoBCP,
-        idServicioPayflow: servicioIdParaPagar,
-      };
-
-      try {
-        console.log("[OrdersService] Enviando solicitud de débito a BCP (Java)...");
-        const config = {
+      let configS2S;
+      if (esServicioBCP) {
+        console.log(`[OrdersService] Pagando servicio BCP (idPagoBCP: ${datosPago.idPagoBCP})`);
+        const debitoRequest = {
+          dniCliente: datosPago.dniCliente,
+          numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
+          monto: subtotal,
+          idPagoBCP: datosPago.idPagoBCP,
+          idServicioPayflow: servicioIdParaPagar,
+        };
+        configS2S = {
           method: 'post',
           url: `${this.bcpApiUrl}/pagos/solicitar-debito`,
           data: debitoRequest,
           timeout: 10000,
         };
-        const bcpResponse = await this.sendBcpRequestWithRetry(config);
+      } else if (esProductoPayflow) {
+        console.log(`[OrdersService] Ejecutando débito directo BCP para compra Payflow`);
+        const debitoDirectoRequest = {
+          dniCliente: datosPago.dniCliente,
+          numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
+          monto: subtotal,
+          descripcionCompra: descripcionCompra
+        };
+        configS2S = {
+          method: 'post',
+          url: `${this.bcpApiUrl}/debito/ejecutar`, 
+          data: debitoDirectoRequest,
+          timeout: 10000,
+        };
+      } else {
+         console.log(`[OrdersService] Ejecutando débito directo BCP para servicio Payflow`);
+         const debitoDirectoRequest = {
+              dniCliente: datosPago.dniCliente,
+              numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
+              monto: subtotal,
+              descripcionCompra: descripcionCompra
+          };
+          configS2S = {
+              method: 'post',
+              url: `${this.bcpApiUrl}/debito/ejecutar`,
+              data: debitoDirectoRequest,
+              timeout: 10000,
+          };
+      }
+      try {
+        const bcpResponse = await this.sendBcpRequestWithRetry(configS2S);
         comprobante = bcpResponse.data;
         console.log("[OrdersService] BCP confirmó el débito.");
-
       } catch (error) {
         console.error("--- ¡ERROR EN LA LLAMADA S2S A BCP! ---");
-        if (error.code === "ECONNABORTED") {
-            throw new Error("Timeout: El servidor de BCP (Java) no respondió a tiempo.");
-        }
-        if (error.response) {
-            if (error.response.status === 401) {
-                throw new Error("Error en la pasarela BCP: Autenticación S2S fallida.");
-            }
-            throw new Error(`Error en la pasarela BCP: ${JSON.stringify(error.response.data)}`);
-        }
-        throw new Error(`Error de red llamando a BCP: ${error.message}`);
+        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        throw new Error(`Error en la pasarela BCP: ${errorMsg}`);
       }
-
+    
     } else if (datosPago.origen === 'PAYFLOW') {
-      console.log("[OrdersService] Procesando pago vía Payflow Interno...");
-
-      console.log(`[OrdersService] SIMULACIÓN: Debitando S/ ${subtotal} de la cuenta Payflow ID: ${datosPago.cuentaId}`);
-      
-      comprobante = {
-        idPago: null,
-        servicio: "Pago Interno Payflow",
-        montoPagado: subtotal,
-        fecha: new Date().toISOString().split('T')[0],
-        codigoAutorizacion: `PF-INT-${Date.now()}`
-      };
-
+      comprobante = {/* xd */ };
     } else {
       throw new Error("El 'origen' de datosPago debe ser 'BCP' o 'PAYFLOW'");
     }

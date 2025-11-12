@@ -45,7 +45,41 @@ class BankAccountsService {
       this.serviceTokenCache.isFetching = false;
     }
   }
+  async realizarDebitoInterno(clienteId, cuentaId, montoADebitar) {
+    if (montoADebitar <= 0) {
+      throw new Error("El monto a debitar debe ser positivo.");
+    }
 
+    const cuenta = await this.bankAccountsRepository.findCuentaParaDebito(
+      cuentaId,
+      clienteId
+    );
+
+    if (!cuenta) {
+      throw new Error("Cuenta no encontrada o no pertenece al cliente.");
+    }
+
+    const saldoActual = parseFloat(cuenta.saldo);
+    if (saldoActual < montoADebitar) {
+      throw new Error("Fondos insuficientes en la cuenta Payflow.");
+    }
+
+    const nuevoSaldo = saldoActual - montoADebitar;
+    await this.bankAccountsRepository.updateSaldo(cuentaId, nuevoSaldo);
+
+    console.log(
+      `[BankAccountsService] Débito exitoso: Cuenta ${cuentaId} | Saldo anterior: ${saldoActual} | Nuevo Saldo: ${nuevoSaldo}`
+    );
+
+    return {
+      idPago: null,
+      servicio: "Compra de Producto Payflow",
+      montoPagado: montoADebitar,
+      fecha: new Date().toISOString().split("T")[0],
+      codigoAutorizacion: `PF-INT-${Date.now()}`,
+    };
+  }
+  
   async sendBcpRequestWithRetry(axiosConfig) {
     try {
       const token = await this.getValidServiceToken();

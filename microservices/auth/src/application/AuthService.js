@@ -1,6 +1,6 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const axios = require("axios"); // <--- FIX 1: Importar axios
+const axios = require("axios");
 
 class AuthService {
   constructor(authRepository) {
@@ -8,12 +8,9 @@ class AuthService {
     this.JWT_SECRET = process.env.JWT_SECRET;
     this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
 
-    // --- FIX 2: Constructor limpiado y simplificado ---
-    // URL para llamar al login público de BCP
-    this.BCP_ROOT_URL = process.env.BCP_ROOT_URL || 'http://localhost:8080';
-    // URL para sincronizar usuarios (llamada interna de microservicio)
-    this.USERS_SERVICE_URL = process.env.USERS_SERVICE_URL || "http://localhost:3002";
-    // --- FIN FIX 2 ---
+    this.BCP_ROOT_URL = process.env.BCP_ROOT_URL || "http://localhost:8080";
+    this.USERS_SERVICE_URL =
+      process.env.USERS_SERVICE_URL || "http://localhost:3002";
 
     if (!this.JWT_SECRET) {
       throw new Error(
@@ -45,7 +42,7 @@ class AuthService {
 
     const user = await this.authRepository.createUser(userToCreate);
 
-    const token = this.generateToken(user, "PAYFLOW"); // Especificar userType
+    const token = this.generateToken(user, "PAYFLOW", null);
 
     return {
       user: user.toJSON(),
@@ -55,10 +52,11 @@ class AuthService {
 
   async login(email, password) {
     try {
-      console.log(`[AuthService] Intento 1: Buscando usuario Payflow local: ${email}`);
+      console.log(
+        `[AuthService] Intento 1: Buscando usuario Payflow local: ${email}`
+      );
       const user = await this.authRepository.findUserByEmail(email);
 
-      // Si el usuario es local (no es de BCP) Y la contraseña coincide
       if (user && user.passwordHash !== "SSO_BCP_USER") {
         if (!user.isActive()) {
           throw new Error("Usuario inactivo");
@@ -69,32 +67,34 @@ class AuthService {
         );
         if (isPasswordValid) {
           console.log(`[AuthService] Éxito local (Payflow) para: ${email}`);
-          const token = this.generateToken(user, "PAYFLOW");
+          const token = this.generateToken(user, "PAYFLOW", null);
           return {
             user: user.toJSON(),
+            clienteId: clienteId,
             token,
           };
         }
       }
 
-      // Si el usuario no es local, o es de BCP, o la contraseña local falló
-      console.log(`[AuthService] Usuario local no encontrado o credencial inválida. Intento 2: BCP`);
+      console.log(
+        `[AuthService] Usuario local no encontrado o credencial inválida. Intento 2: BCP`
+      );
       return await this.loginViaBcp(email, password);
-
     } catch (err) {
-      // --- FIX 4: Mejorar el manejo de errores ---
-      // Ya no ocultamos el error. Si loginViaBcp falla, lanzamos su error específico.
-      console.error(`[AuthService] Fallo final de login para ${email}: ${err.message}`);
-      // Esto propagará el error real (ej. "Error de sincronización...") al Gateway
+      console.error(
+        `[AuthService] Fallo final de login para ${email}: ${err.message}`
+      );
       throw err;
-      // --- FIN FIX 4 ---
     }
   }
 
   async loginViaBcp(email, password) {
     let bcpAuthResponse;
     try {
-      console.log(`[AuthService] Llamando a BCP Login en: ${this.BCP_ROOT_URL}/auth/login`);
+      console.log(
+        `[AuthService] Llamando a BCP Login en: ${this.BCP_ROOT_URL}/auth/login`
+      );
+
       bcpAuthResponse = await axios.post(`${this.BCP_ROOT_URL}/auth/login`, {
         nombre: email,
         contrasena: password,
@@ -112,6 +112,7 @@ class AuthService {
     }
 
     console.log("[AuthService] BCP Login OK. Sincronizando usuario...");
+
     let syncResponse;
     try {
       syncResponse = await axios.post(
@@ -123,43 +124,54 @@ class AuthService {
       console.error(
         `[AuthService] Error sincronizando usuario BCP: ${syncError.message}`
       );
-       if (syncError.response && syncError.response.data) {
-           throw new Error(`Error de sincronización: ${syncError.response.data.error || syncError.message}`);
-       }
+      if (syncError.response && syncError.response.data) {
+        throw new Error(
+          `Error de sincronización: ${
+            syncError.response.data.error || syncError.message
+          }`
+        );
+      }
       throw new Error("Error al sincronizar el perfil de BCP");
     }
-
-    const syncedCliente = syncResponse.data; 
+    const syncedCliente = syncResponse.data;
     if (!syncedCliente || !syncedCliente.correo) {
-         throw new Error("La sincronización no devolvió un email.");
+      throw new Error(
+        "La sincronización no devolvió un email (campo 'correo')."
+      );
     }
 
-    const emailReal = syncedCliente.correo; 
-    console.log(`[AuthService] Sincronización OK. Buscando usuario localmente por email real: ${emailReal}`);
+    const emailReal = syncedCliente.correo;
+    console.log(
+      `[AuthService] Sincronización OK. Buscando usuario localmente por email real: ${emailReal}`
+    );
 
-    const user = await this.authRepository.findUserByEmail(emailReal); 
-    
+    const user = await this.authRepository.findUserByEmail(emailReal);
     if (!user) {
-       throw new Error('La sincronización falló, el usuario no se encuentra localmente (Inconsistencia de BBDD).');
+      throw new Error(
+        "La sincronización falló, el usuario no se encuentra localmente (Inconsistencia de BBDD)."
+      );
     }
 
     console.log(`[AuthService] Éxito de login (BCP) para: ${emailReal}`);
-    const payflowToken = this.generateToken(user, 'BCP');
+
+    const payflowToken = this.generateToken(user, "BCP", syncedCliente.id);
 
     return {
       user: user.toJSON(),
-      token: payflowToken
+      clienteId: syncedCliente.id,
+      token: payflowToken,
     };
   }
 
-  generateToken(user, userType = 'PAYFLOW') {
+  generateToken(user, userType = "PAYFLOW", clienteId = null) {
     return jwt.sign(
       {
         userId: user.id,
+        clienteId: clienteId,
         email: user.email,
         rol: user.rol,
         dni: user.dni,
-        userType: userType
+        userType: userType,
       },
       this.JWT_SECRET,
       { expiresIn: this.JWT_EXPIRES_IN }

@@ -10,6 +10,27 @@ class BankAccountsController {
       res.status(500).json({ error: error.message });
     }
   }
+  async realizarDebito(req, res) {
+    try {
+      const clienteId = req.user.clienteId;
+      const { cuentaId, monto } = req.body;
+
+      if (!clienteId) {
+         throw new Error("Token no contiene 'clienteId'.");
+      }
+      
+      if (!cuentaId || !monto) {
+        return res.status(400).json({ error: "cuentaId y monto son requeridos." });
+      }
+
+      const comprobante = await this.bankAccountsService.realizarDebitoInterno(clienteId, cuentaId, monto);
+      res.status(200).json(comprobante);
+
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+  
   async createCuentaBancaria(req, res) {
     try {
       const { cliente_id, banco, numero_cuenta, tipo_cuenta, titular } = req.body;

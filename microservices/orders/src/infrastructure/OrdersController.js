@@ -11,19 +11,31 @@ class OrdersController {
       if (!clienteId || !items || items.length === 0 || !datosPago) {
         return res.status(400).json({ error: 'clienteId, items y datosPago son requeridos' });
       }
-
+      const mainItem = items[0];
+      const esProducto = !!mainItem.productoId;
+      const esServicio = !!mainItem.servicioId;
       if (datosPago.origen === 'BCP') {
-        if (!datosPago.numeroCuentaOrigen || !datosPago.idPagoBCP) {
-          return res.status(400).json({ error: 'Datos de pago BCP incompletos (numeroCuentaOrigen, idPagoBCP)' });
+        datosPago.dniCliente = bcpUser.dni;
+
+        if (esProducto) {
+          if (!datosPago.numeroCuentaOrigen) {
+            return res.status(400).json({ error: "El pago de productos con BCP requiere 'numeroCuentaOrigen'." });
+          }
+        } else if (esServicio) {
+          if (!datosPago.numeroCuentaOrigen || !datosPago.idPagoBCP || !datosPago.monto) {
+            return res.status(400).json({ error: "El pago de servicios BCP requiere 'numeroCuentaOrigen', 'idPagoBCP' y 'monto'." });
+          }
+        } else {
+            return res.status(400).json({ error: "El item de la orden debe tener 'productoId' o 'servicioId'." });
         }
-        datosPago.dniCliente = bcpUser.dni; 
 
       } else if (datosPago.origen === 'PAYFLOW') {
+        datosPago.userToken = req.headers.authorization;
         if (!datosPago.cuentaId) {
-          return res.status(400).json({ error: 'Datos de pago Payflow incompletos (cuentaId)' });
+           return res.status(400).json({ error: 'Datos de pago Payflow incompletos (cuentaId)' });
         }
       } else {
-        return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP' o 'PAYFLOW'" });
+         return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP' o 'PAYFLOW'" });
       }
       const resultado = await this.ordersService.createOrden({
         clienteId,

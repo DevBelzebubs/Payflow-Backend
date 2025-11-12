@@ -36,7 +36,6 @@ class SqlServerBankAccountsRepository {
   async findCuentasByUsuarioId(usuarioId) {
     try {
       const pool = await getPool();
-      // Esta consulta une usuarios -> clientes -> cuentas
       const result = await pool
         .request()
         .input('usuario_id', sql.UniqueIdentifier, usuarioId)
@@ -55,13 +54,58 @@ class SqlServerBankAccountsRepository {
         tipoCuenta: data.tipo_cuenta,
         titular: data.titular,
         activo: data.activo,
-        createdAt: data.created_at
+        createdAt: data.created_at,
+        saldo: data.saldo
       }));
     } catch (error) {
       throw new Error(`Error buscando cuentas bancarias por usuario: ${error.message}`);
     }
   }
-  
+  async findCuentaParaDebito(cuentaId, clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, cuentaId)
+        .input('cliente_id', sql.UniqueIdentifier, clienteId)
+        .query(`
+          SELECT * FROM cuentas_bancarias 
+          WHERE id = @id AND cliente_id = @cliente_id
+        `);
+
+      if (result.recordset.length === 0) {
+        return null;
+      }
+
+      const data = result.recordset[0];
+      return new CuentaBancaria({
+        id: data.id,
+        clienteId: data.cliente_id,
+        banco: data.banco,
+        numeroCuenta: data.numero_cuenta,
+        tipoCuenta: data.tipo_cuenta,
+        titular: data.titular,
+        activo: data.activo,
+        createdAt: data.created_at,
+        saldo: data.saldo
+      });
+    } catch (error) {
+      throw new Error(`Error buscando cuenta para débito: ${error.message}`);
+    }
+  }
+  async updateSaldo(cuentaId, nuevoSaldo) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, cuentaId)
+        .input('saldo', sql.Decimal(10, 2), nuevoSaldo)
+        .query('UPDATE cuentas_bancarias SET saldo = @saldo WHERE id = @id');
+      return true;
+    } catch (error) {
+      throw new Error(`Error actualizando saldo: ${error.message}`);
+    }
+  }
   async findCuentaBancariaById(cuentaId) {
     try {
       const pool = await getPool();

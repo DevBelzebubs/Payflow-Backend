@@ -25,7 +25,7 @@ app.get('/api/cuentas-bancarias/mis-cuentas', authMiddleware, (req, res) => bank
 // --- FIN DE LA RUTA ---
 
 app.post('/api/cuentas-bancarias', (req, res) => bankAccountsController.createCuentaBancaria(req, res));
-
+app.post('/api/cuentas-bancarias/debitar', authMiddleware, (req, res) => bankAccountsController.realizarDebito(req, res));
 // --- 3. RUTAS DINÁMICAS VAN DESPUÉS ---
 app.get('/api/cuentas-bancarias/cliente/:clienteId', (req, res) => bankAccountsController.getCuentasByCliente(req, res));
 app.get('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.getCuentaBancaria(req, res)); // Esta debe ir después de /mis-cuentas
