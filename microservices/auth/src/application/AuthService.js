@@ -52,22 +52,26 @@ class AuthService {
 
   async login(email, password) {
     try {
-      console.log(
-        `[AuthService] Intento 1: Buscando usuario Payflow local: ${email}`
-      );
+      console.log(`[AuthService] Intento 1: Buscando usuario Payflow local: ${email}`);
       const user = await this.authRepository.findUserByEmail(email);
 
       if (user && user.passwordHash !== "SSO_BCP_USER") {
         if (!user.isActive()) {
           throw new Error("Usuario inactivo");
         }
-        const isPasswordValid = await bcrypt.compare(
-          password,
-          user.passwordHash
-        );
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        
         if (isPasswordValid) {
           console.log(`[AuthService] Éxito local (Payflow) para: ${email}`);
-          const token = this.generateToken(user, "PAYFLOW", null);
+          
+          let clienteId = null;
+          try {
+
+            clienteId = await this.authRepository.findClienteIdByUsuarioId(user.id);
+          } catch (err) {
+            console.warn(`[AuthService] No se pudo obtener clienteId para usuario local: ${err.message}`);
+          }
+          const token = this.generateToken(user, "PAYFLOW", clienteId);
           return {
             user: user.toJSON(),
             clienteId: clienteId,
@@ -76,14 +80,11 @@ class AuthService {
         }
       }
 
-      console.log(
-        `[AuthService] Usuario local no encontrado o credencial inválida. Intento 2: BCP`
-      );
+      console.log(`[AuthService] Usuario local no encontrado o credencial inválida. Intento 2: BCP`);
       return await this.loginViaBcp(email, password);
+      
     } catch (err) {
-      console.error(
-        `[AuthService] Fallo final de login para ${email}: ${err.message}`
-      );
+      console.error(`[AuthService] Fallo final de login para ${email}: ${err.message}`);
       throw err;
     }
   }

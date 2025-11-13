@@ -28,6 +28,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
+        saldo: data.saldo
       });
     } catch (error) {
       throw new Error(`Error creando cuenta bancaria: ${error.message}`);
@@ -128,6 +129,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
+        saldo: data.saldo
       });
     } catch (error) {
       throw new Error(`Error buscando cuenta bancaria: ${error.message}`);
@@ -155,6 +157,7 @@ class SqlServerBankAccountsRepository {
             titular: data.titular,
             activo: data.activo,
             createdAt: data.created_at,
+            saldo: data.saldo
           })
       );
     } catch (error) {
@@ -212,6 +215,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
+        saldo : data.saldo
       });
     } catch (error) {
       throw new Error(`Error actualizando cuenta bancaria: ${error.message}`);

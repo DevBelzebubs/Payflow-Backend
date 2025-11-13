@@ -7,10 +7,11 @@ class OrdersService {
       process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
     this.servicesServiceUrl =
       process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
-
+    this.bankAccountsServiceUrl = process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
     this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    this.bcpAuthUrl = (process.env.BCP_API_URL || "http://localhost:8080/api/s2s")
-      .replace("/api/s2s", "/auth/generar-token-servicio");
+    this.bcpAuthUrl = (
+      process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
+    ).replace("/api/s2s", "/auth/generar-token-servicio");
 
     this.serviceTokenCache = {
       token: null,
@@ -27,29 +28,37 @@ class OrdersService {
 
   async refreshServiceToken() {
     if (this.serviceTokenCache.isFetching) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       return this.serviceTokenCache.token;
     }
 
     try {
       this.serviceTokenCache.isFetching = true;
-      console.log("[OrdersService] Token S2S no encontrado o expirado. Solicitando uno nuevo a BCP...");
-      
+      console.log(
+        "[OrdersService] Token S2S no encontrado o expirado. Solicitando uno nuevo a BCP..."
+      );
+
       const response = await axios.get(this.bcpAuthUrl, { timeout: 5000 });
       const newToken = response.data?.token;
 
       if (!newToken) {
-        throw new Error("La respuesta de BCP /auth/generar-token-servicio no contenía un token.");
+        throw new Error(
+          "La respuesta de BCP /auth/generar-token-servicio no contenía un token."
+        );
       }
 
       this.serviceTokenCache.token = newToken;
       console.log("[OrdersService] Nuevo token S2S obtenido y cacheado.");
       return newToken;
-
     } catch (e) {
-      console.error("[OrdersService] CRÍTICO: Fallo al intentar refrescar el token S2S.", e.message);
+      console.error(
+        "[OrdersService] CRÍTICO: Fallo al intentar refrescar el token S2S.",
+        e.message
+      );
       this.serviceTokenCache.token = null;
-      throw new Error(`No se pudo refrescar el token de servicio S2S desde BCP: ${e.message}`);
+      throw new Error(
+        `No se pudo refrescar el token de servicio S2S desde BCP: ${e.message}`
+      );
     } finally {
       this.serviceTokenCache.isFetching = false;
     }
@@ -62,39 +71,53 @@ class OrdersService {
         ...axiosConfig.headers,
         Authorization: `Bearer ${token}`,
       };
-      
-      console.log(`[OrdersService] Enviando petición S2S a BCP: ${axiosConfig.url}`);
-      return await axios(axiosConfig);
 
+      console.log(
+        `[OrdersService] Enviando petición S2S a BCP: ${axiosConfig.url}`
+      );
+      return await axios(axiosConfig);
     } catch (error) {
       if (error.response && error.response.status === 401) {
-        console.warn("[OrdersService] Petición S2S falló con 401 (Token Expirado). Reintentando con un token nuevo...");
-        
+        console.warn(
+          "[OrdersService] Petición S2S falló con 401 (Token Expirado). Reintentando con un token nuevo..."
+        );
+
         const newToken = await this.refreshServiceToken();
-        
+
         axiosConfig.headers.Authorization = `Bearer ${newToken}`;
-        console.log(`[OrdersService] Reintentando petición S2S a BCP: ${axiosConfig.url}`);
+        console.log(
+          `[OrdersService] Reintentando petición S2S a BCP: ${axiosConfig.url}`
+        );
         return await axios(axiosConfig);
       }
-      
+
       throw error;
     }
   }
 
-
   async createOrden(ordenData, datosPago) {
     try {
-      const testUrl = (process.env.BCP_API_URL || "http://localhost:8080/api/s2s").replace("/api/s2s", "");
-      await axios.get(`${testUrl}/auth/generar-token-servicio`, { timeout: 3000 });
-      console.log("[OrdersService] ¡ÉXITO! La conexión de Node.js a Java (8080) funciona.");
+      const testUrl = (
+        process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
+      ).replace("/api/s2s", "");
+      await axios.get(`${testUrl}/auth/generar-token-servicio`, {
+        timeout: 3000,
+      });
+      console.log(
+        "[OrdersService] ¡ÉXITO! La conexión de Node.js a Java (8080) funciona."
+      );
     } catch (e) {
-      console.error(`[OrdersService] ¡FALLO DE RED! Node.js NO PUEDE conectarse a Java en el puerto 8080. Error: ${e.message}`);
-      throw new Error(`Fallo de red al conectar con BCP: ${e.message}. Revisa el Firewall.`);
+      console.error(
+        `[OrdersService] ¡FALLO DE RED! Node.js NO PUEDE conectarse a Java en el puerto 8080. Error: ${e.message}`
+      );
+      throw new Error(
+        `Fallo de red al conectar con BCP: ${e.message}. Revisa el Firewall.`
+      );
     }
 
     const { clienteId, items, notas } = ordenData;
     const mainItem = items[0];
-    
+
     let esProductoPayflow = !!mainItem.productoId;
     let esServicioBCP = !!mainItem.servicioId && !!datosPago.idPagoBCP;
 
@@ -102,33 +125,39 @@ class OrdersService {
     let servicioIdParaPagar = null;
     let descripcionCompra = "Compra en Payflow";
     if (esServicioBCP) {
-        if (!datosPago.monto) {
-            throw new Error("Para pagos de servicios BCP, 'datosPago.monto' es requerido (Error de Servicio).");
-        }
-        subtotal = datosPago.monto;
-        servicioIdParaPagar = mainItem.servicioId;
-        descripcionCompra = `1x Servicio BCP (ID: ${mainItem.servicioId})`;
+      if (!datosPago.monto) {
+        throw new Error(
+          "Para pagos de servicios BCP, 'datosPago.monto' es requerido (Error de Servicio)."
+        );
+      }
+      subtotal = datosPago.monto;
+      servicioIdParaPagar = mainItem.servicioId;
+      descripcionCompra = `1x Servicio BCP (ID: ${mainItem.servicioId})`;
 
-        mainItem.precioUnitario = subtotal / mainItem.cantidad;
-        mainItem.subtotal = subtotal;
+      mainItem.precioUnitario = subtotal / mainItem.cantidad;
+      mainItem.subtotal = subtotal;
     } else {
-        for (const item of items) {
-            let precio = 0;
-            if (item.productoId) {
-                const response = await axios.get(`${this.productsServiceUrl}/api/productos/${item.productoId}`);
-                precio = response.data.precio;
-                descripcionCompra = `1x Producto Payflow (ID: ${item.productoId})`;
-            } else if (item.servicioId) {
-                const response = await axios.get(`${this.servicesServiceUrl}/api/servicios/${item.servicioId}`);
-                precio = response.data.recibo;
-                servicioIdParaPagar = item.servicioId;
-                descripcionCompra = `1x Servicio Payflow (ID: ${item.servicioId})`;
-            }
-            
-            item.precioUnitario = precio;
-            item.subtotal = precio * item.cantidad;
-            subtotal += item.subtotal;
+      for (const item of items) {
+        let precio = 0;
+        if (item.productoId) {
+          const response = await axios.get(
+            `${this.productsServiceUrl}/api/productos/${item.productoId}`
+          );
+          precio = response.data.precio;
+          descripcionCompra = `1x Producto Payflow (ID: ${item.productoId})`;
+        } else if (item.servicioId) {
+          const response = await axios.get(
+            `${this.servicesServiceUrl}/api/servicios/${item.servicioId}`
+          );
+          precio = response.data.recibo;
+          servicioIdParaPagar = item.servicioId;
+          descripcionCompra = `1x Servicio Payflow (ID: ${item.servicioId})`;
         }
+
+        item.precioUnitario = precio;
+        item.subtotal = precio * item.cantidad;
+        subtotal += item.subtotal;
+      }
     }
 
     const impuestos = subtotal * 0.16;
@@ -136,52 +165,58 @@ class OrdersService {
 
     let comprobante;
 
-    if (datosPago.origen === 'BCP') {
+    if (datosPago.origen === "BCP") {
       console.log("[OrdersService] Procesando pago vía BCP S2S...");
       let configS2S;
       if (esServicioBCP) {
-        console.log(`[OrdersService] Pagando servicio BCP (idPagoBCP: ${datosPago.idPagoBCP})`);
+        console.log(
+          `[OrdersService] Pagando servicio BCP (idPagoBCP: ${datosPago.idPagoBCP})`
+        );
         const debitoRequest = {
           dniCliente: datosPago.dniCliente,
           numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
-          monto: subtotal,
+          monto: total,
           idPagoBCP: datosPago.idPagoBCP,
           idServicioPayflow: servicioIdParaPagar,
         };
         configS2S = {
-          method: 'post',
+          method: "post",
           url: `${this.bcpApiUrl}/pagos/solicitar-debito`,
           data: debitoRequest,
           timeout: 10000,
         };
       } else if (esProductoPayflow) {
-        console.log(`[OrdersService] Ejecutando débito directo BCP para compra Payflow`);
+        console.log(
+          `[OrdersService] Ejecutando débito directo BCP para compra Payflow`
+        );
         const debitoDirectoRequest = {
           dniCliente: datosPago.dniCliente,
           numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
           monto: subtotal,
-          descripcionCompra: descripcionCompra
+          descripcionCompra: descripcionCompra,
         };
         configS2S = {
-          method: 'post',
-          url: `${this.bcpApiUrl}/debito/ejecutar`, 
+          method: "post",
+          url: `${this.bcpApiUrl}/debito/ejecutar`,
           data: debitoDirectoRequest,
           timeout: 10000,
         };
       } else {
-         console.log(`[OrdersService] Ejecutando débito directo BCP para servicio Payflow`);
-         const debitoDirectoRequest = {
-              dniCliente: datosPago.dniCliente,
-              numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
-              monto: subtotal,
-              descripcionCompra: descripcionCompra
-          };
-          configS2S = {
-              method: 'post',
-              url: `${this.bcpApiUrl}/debito/ejecutar`,
-              data: debitoDirectoRequest,
-              timeout: 10000,
-          };
+        console.log(
+          `[OrdersService] Ejecutando débito directo BCP para servicio Payflow`
+        );
+        const debitoDirectoRequest = {
+          dniCliente: datosPago.dniCliente,
+          numeroCuentaOrigen: datosPago.numeroCuentaOrigen,
+          monto: subtotal,
+          descripcionCompra: descripcionCompra,
+        };
+        configS2S = {
+          method: "post",
+          url: `${this.bcpApiUrl}/debito/ejecutar`,
+          data: debitoDirectoRequest,
+          timeout: 10000,
+        };
       }
       try {
         const bcpResponse = await this.sendBcpRequestWithRetry(configS2S);
@@ -189,16 +224,36 @@ class OrdersService {
         console.log("[OrdersService] BCP confirmó el débito.");
       } catch (error) {
         console.error("--- ¡ERROR EN LA LLAMADA S2S A BCP! ---");
-        const errorMsg = error.response ? JSON.stringify(error.response.data) : error.message;
+        const errorMsg = error.response
+          ? JSON.stringify(error.response.data)
+          : error.message;
         throw new Error(`Error en la pasarela BCP: ${errorMsg}`);
       }
-    
-    } else if (datosPago.origen === 'PAYFLOW') {
-      comprobante = {/* xd */ };
+    } else if (datosPago.origen === "PAYFLOW") {
+      try {
+        const debitResponse = await axios.post(
+          `${this.bankAccountsServiceUrl}/api/cuentas-bancarias/debitar`,
+          {
+            cuentaId: datosPago.cuentaId,
+            monto: total,
+          },
+          {
+            headers: { Authorization: datosPago.userToken },
+          }
+        );
+        comprobante = debitResponse.data;
+        console.log("[OrdersService] Débito interno exitoso.");
+      } catch (error) {
+        console.error(
+          "[OrdersService] Error en débito interno:",
+          error.message
+        );
+        const msg = error.response?.data?.error || error.message;
+        throw new Error(`Fallo al procesar el pago interno: ${msg}`);
+      }
     } else {
       throw new Error("El 'origen' de datosPago debe ser 'BCP' o 'PAYFLOW'");
     }
-
 
     const orden = await this.ordersRepository.createOrden({
       cliente_id: clienteId,
@@ -221,24 +276,39 @@ class OrdersService {
 
       if (item.servicioId) {
         try {
-          await axios.patch(
-            `${this.servicesServiceUrl}/api/servicios/${item.servicioId}/marcar-pagado`
+          const servicioInfo = await axios.get(
+            `${this.servicesServiceUrl}/api/servicios/${item.servicioId}`
           );
-          console.log(`[OrdersService] Servicio Payflow ${item.servicioId} marcado como PAGADO.`);
+          const esPrivado = !!servicioInfo.data.cliente_id;
+
+          if (esPrivado) {
+            await axios.patch(
+              `${this.servicesServiceUrl}/api/servicios/${item.servicioId}/marcar-pagado`
+            );
+            console.log(
+              `[OrdersService] Servicio PRIVADO ${item.servicioId} marcado como PAGADO.`
+            );
+          } else {
+            console.log(
+              `[OrdersService] Servicio PÚBLICO ${item.servicioId} pagado. No se altera su estado global.`
+            );
+          }
         } catch (e) {
-          console.error(`[OrdersService] Error al marcar servicio ${item.servicioId} como pagado: ${e.message}`);
+          console.error(
+            `[OrdersService] Error al gestionar estado del servicio ${item.servicioId}: ${e.message}`
+          );
         }
       }
     }
 
     const ordenCompleta = await this.getOrdenById(orden.id);
-    
+
     return {
       ordenPayflow: ordenCompleta.toJSON(),
       comprobante: comprobante,
     };
   }
-  
+
   async getOrdenById(ordenId) {
     return await this.ordersRepository.findOrdenById(ordenId);
   }
@@ -283,22 +353,24 @@ class OrdersService {
       estado: "cancelada",
     });
   }
-  async getCuentasByDni(dni){
-    if(!dni){
-      throw new Error("El DNI es requerido para consultar las cuentas de BCP.")
+  async getCuentasByDni(dni) {
+    if (!dni) {
+      throw new Error("El DNI es requerido para consultar las cuentas de BCP.");
     }
-    try{
+    try {
       const config = {
-        method:'get',
+        method: "get",
         url: `${this.bcpApiUrl}`,
-        timeout:5000
+        timeout: 5000,
       };
       const bcpResponse = await this.sendBcpRequestWithRetry(config);
       return bcpResponse.data;
-    }catch (err){
-      if(err.response){
+    } catch (err) {
+      if (err.response) {
         throw new Error(
-          `Error en la pasarela BCP (Cuentas): ${JSON.stringify(error.response.data)}`
+          `Error en la pasarela BCP (Cuentas): ${JSON.stringify(
+            error.response.data
+          )}`
         );
       }
       throw new Error(`Error de red llamando a BCP: ${error.message}`);
