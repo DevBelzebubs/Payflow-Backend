@@ -1,7 +1,9 @@
+const axios = require("axios");
 class UsersService {
   constructor(usersRepository, authRepository) {
     this.usersRepository = usersRepository;
     this.authRepository = authRepository;
+    this.BANK_ACCOUNTS_SERVICE_URL = process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
   }
   async findOrCreateClienteFromBcp(bcpUserData) {
     const { email, dni, bcpUsuarioId, nombreCompleto, telefono } = bcpUserData;
@@ -36,20 +38,50 @@ class UsersService {
         );
       }
     }
-
     let payflowCliente = await this.usersRepository.findClienteByUsuarioId(
       payflowUser.id
     );
-
     if (!payflowCliente) {
       console.log(`Perfil de Cliente no encontrado para ${email}. Creando...`);
-
       payflowCliente = await this.usersRepository.createCliente(payflowUser);
+      try{
+        console.log(`Creando Monedero Payflow para cliente ${payflowCliente.id}...`);
+        const walletData = {
+          cliente_id: payflowCliente.id,
+          banco: "Monedero Payflow",
+          numero_cuenta: `WALLET-${payflowUser.id.substring(0, 8)}`,
+          tipo_cuenta: "ahorro",
+          titular: payflowUser.nombre,
+          activo: true
+        };
+        await axios.post(`${this.BANK_ACCOUNTS_SERVICE_URL}/api/cuentas-bancarias`,walletData);
+        console.log("Monedero creado");
+      }catch(err){
+        console.error(err.message);
+        throw new Error(`Error al crear el monedero: ${err.response?.data?.error || err.message}`);
+      }
     }
     return payflowCliente;
   }
   async createCliente(clienteData) {
-    return await this.usersRepository.createCliente(clienteData);
+    const payflowCliente = await this.usersRepository.createCliente(clienteData);
+    try {
+      const walletData = {
+        cliente_id : payflowCliente.id,
+        banco: "Monedero payflow",
+        numero_cuenta : `WALLET-${payflowCliente.usuarioId.substring(0,8)}`,
+        tipo_cuenta: "ahorro",
+        titular: payflowCliente.nombre,
+        activo:true
+      }
+      await axios.post(`${this.BANK_ACCOUNTS_SERVICE_URL}/api/cuentas-bancarias`,walletData)
+    } catch (walletError) {
+        console.error(
+        `[UsersService] CRÍTICO: El cliente ${payflowCliente.id} se creó, pero falló la creación de su monedero: ${walletError.message}`
+      );
+      throw new Error(`El cliente se creó, pero no se pudo generar el monedero: ${walletError.response?.data?.error || walletError.message}`);
+    }
+    return payflowCliente;
   }
 
   async getClienteByUsuarioId(usuarioId) {

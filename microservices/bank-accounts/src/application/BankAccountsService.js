@@ -58,13 +58,19 @@ class BankAccountsService {
     if (!cuenta) {
       throw new Error("Cuenta no encontrada o no pertenece al cliente.");
     }
-
+    let montoFinal = montoADebitar;
+    let descripcionCompra = "Compra de producto payflow";
+    if (cuenta.banco === "Monedero Payflow" && cuenta.tipo_cuenta === "monedero") {
+      montoFinal = montoADebitar * 0.80;
+      descripcionCompra = "Compra con Monedero Payflow (20% Dcto.)"
+      console.log("Works");
+    }
     const saldoActual = parseFloat(cuenta.saldo);
-    if (saldoActual < montoADebitar) {
+    if (saldoActual < montoFinal) {
       throw new Error("Fondos insuficientes en la cuenta Payflow.");
     }
 
-    const nuevoSaldo = saldoActual - montoADebitar;
+    const nuevoSaldo = saldoActual - montoFinal;
     await this.bankAccountsRepository.updateSaldo(cuentaId, nuevoSaldo);
 
     console.log(
@@ -73,8 +79,8 @@ class BankAccountsService {
 
     return {
       idPago: null,
-      servicio: "Compra de Producto Payflow",
-      montoPagado: montoADebitar,
+      servicio: descripcionCompra,
+      montoPagado: montoFinal,
       fecha: new Date().toISOString().split("T")[0],
       codigoAutorizacion: `PF-INT-${Date.now()}`,
     };

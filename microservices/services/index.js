@@ -17,6 +17,7 @@ const servicesService = new ServicesService(servicesRepository);
 const servicesController = new ServicesController(servicesService);
 
 app.post('/api/servicios', (req, res) => servicesController.createServicio(req, res));
+app.get('/api/servicios/externos/pendientes', (req,res) => servicesController.getServiciosExternos(req,res));
 app.get('/api/servicios/:idServicio', (req, res) => servicesController.getServicio(req, res));
 app.get('/api/servicios', (req, res) => servicesController.getAllServicios(req, res));
 app.put('/api/servicios/:idServicio', (req, res) => servicesController.updateServicio(req, res));

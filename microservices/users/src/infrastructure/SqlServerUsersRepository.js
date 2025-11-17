@@ -3,13 +3,16 @@ const Administrador = require('../domain/Administrador');
 const { getPool, sql } = require('../../../../database/sqlServerConfig');
 
 class SqlServerUsersRepository {
-  async createCliente(payflowUser) {
+  async createCliente(data) {
     try {
       const pool = await getPool();
-
+      const usuarioId = data.id || data.usuario_id;
+      if (!usuarioId) {
+        throw new Error("No se pudo determinar el usuario_id para crear el cliente.");
+      }
       const resultCliente = await pool
         .request()
-        .input('usuario_id', sql.UniqueIdentifier, payflowUser.id)
+        .input('usuario_id', sql.UniqueIdentifier, usuarioId)
         .query(`
           INSERT INTO clientes (usuario_id) 
           OUTPUT INSERTED.id, INSERTED.usuario_id, INSERTED.created_at
@@ -17,19 +20,27 @@ class SqlServerUsersRepository {
         `);
 
       const dataCliente = resultCliente.recordset[0];
-
+      let userData = data;
+      if (!userData.nombre){
+        const userResult = await pool.request().input('id',sql.UniqueIdentifier,usuarioId).query("SELECT* FROM usuarios WHERE id = @id");
+        if (userResult.recordset.length === 0) {
+          throw new Error("El usuario_id insertado no se encontró en la tabla de usuarios.");
+        }
+        userData = userResult.recordset[0];
+      }
       return new Cliente({
         id: dataCliente.id,
         fechaRegistro: dataCliente.created_at,
-        usuarioId: payflowUser.id,
-        nombre: payflowUser.nombre,
-        correo: payflowUser.email,
-        telefono: payflowUser.telefono
+        usuarioId: usuarioId,
+        nombre: userData.nombre,
+        correo: userData.email,
+        telefono: userData.telefono
       });
 
     } catch (error) {
+      const usuarioId = data.id || data.usuario_id;
       if (error.message.includes('UNIQUE KEY') || error.message.includes('FOREIGN KEY')) {
-        throw new Error(`El usuario con ID ${payflowUser.id} ya es un cliente o no existe.`);
+        throw new Error(`El usuario con ID ${usuarioId} ya es un cliente o no existe.`);
       }
       throw new Error(`Error creando cliente: ${error.message}`);
     }
