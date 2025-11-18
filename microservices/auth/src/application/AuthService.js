@@ -117,8 +117,7 @@ class AuthService {
     let syncResponse;
     try {
       syncResponse = await axios.post(
-        `${this.USERS_SERVICE_URL}/api/clientes/sync`,
-        {},
+        `${this.USERS_SERVICE_URL}/api/clientes/sync`,{},
         { headers: { Authorization: `Bearer ${bcpToken}` } }
       );
     } catch (syncError) {
@@ -134,7 +133,7 @@ class AuthService {
       }
       throw new Error("Error al sincronizar el perfil de BCP");
     }
-    const syncedCliente = syncResponse.data;
+    const { cliente: syncedCliente, isNewUser } = syncResponse.data;
     if (!syncedCliente || !syncedCliente.correo) {
       throw new Error(
         "La sincronización no devolvió un email (campo 'correo')."
@@ -156,11 +155,12 @@ class AuthService {
     console.log(`[AuthService] Éxito de login (BCP) para: ${emailReal}`);
 
     const payflowToken = this.generateToken(user, "BCP", syncedCliente.id);
-
+    
     return {
       user: user.toJSON(),
       clienteId: syncedCliente.id,
       token: payflowToken,
+      isNewUser: isNewUser || false,
     };
   }
 

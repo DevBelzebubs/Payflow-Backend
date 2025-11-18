@@ -15,7 +15,6 @@ class UsersService {
       throw new Error("El token JWT de BCP no contiene el claim 'dni'.");
     }
     let payflowUser = await this.authRepository.findUserByEmail(email);
-
     if (!payflowUser) {
       console.log(`Usuario de BCP no encontrado (${email}). Creando...`);
       const newUserPayload = {
@@ -38,12 +37,12 @@ class UsersService {
         );
       }
     }
-    let payflowCliente = await this.usersRepository.findClienteByUsuarioId(
-      payflowUser.id
-    );
+    let payflowCliente = await this.usersRepository.findClienteByUsuarioId(payflowUser.id);
+    let isNewUser = false;
     if (!payflowCliente) {
       console.log(`Perfil de Cliente no encontrado para ${email}. Creando...`);
       payflowCliente = await this.usersRepository.createCliente(payflowUser);
+      isNewUser = true;
       try{
         console.log(`Creando Monedero Payflow para cliente ${payflowCliente.id}...`);
         const walletData = {
@@ -61,7 +60,7 @@ class UsersService {
         throw new Error(`Error al crear el monedero: ${err.response?.data?.error || err.message}`);
       }
     }
-    return payflowCliente;
+    return { cliente: payflowCliente, isNewUser };
   }
   async createCliente(clienteData) {
     const payflowCliente = await this.usersRepository.createCliente(clienteData);

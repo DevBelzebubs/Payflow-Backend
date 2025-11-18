@@ -8,7 +8,7 @@ class UsersController {
       
       const payflowCliente = await this.usersService.findOrCreateClienteFromBcp(bcpUserPayload);
       
-      res.status(200).json(payflowCliente.toJSON());
+      res.status(200).json(payflowCliente.toJSON(),isNewUser);
     } catch (error) {
       res.status(400).json({ error: error.message });
     }

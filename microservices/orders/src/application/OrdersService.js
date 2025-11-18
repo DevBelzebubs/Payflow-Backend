@@ -7,7 +7,8 @@ class OrdersService {
       process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
     this.servicesServiceUrl =
       process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
-    this.bankAccountsServiceUrl = process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
+    this.bankAccountsServiceUrl =
+      process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
     this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
     this.bcpAuthUrl = (
       process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
@@ -17,6 +18,7 @@ class OrdersService {
       token: null,
       isFetching: false,
     };
+    this.PAYFLOW_MASTER_ACCOUNT_BCP = "CUENTA-MAESTRA-PAYFLOW-001"
   }
 
   async getValidServiceToken() {
@@ -243,6 +245,12 @@ class OrdersService {
         );
         comprobante = debitResponse.data;
         console.log("[OrdersService] Débito interno exitoso.");
+        if (esServicioBCP) {
+          console.log(
+            `[OrdersService] El ítem pagado es una Deuda BCP (${datosPago.idPagoBCP}). Liquidando en el banco...`
+          );
+          await this.liquidarDeudaEnBcp(datosPago.idPagoBCP);
+        }
       } catch (error) {
         console.error(
           "[OrdersService] Error en débito interno:",
@@ -307,6 +315,22 @@ class OrdersService {
       ordenPayflow: ordenCompleta.toJSON(),
       comprobante: comprobante,
     };
+  }
+  async liquidarDeudaEnBcp(pagoId){
+    try {
+      const payload = {
+        cuentaId: this.PAYFLOW_MASTER_ACCOUNT_BCP,
+        PagoId: pagoId,
+      };
+      await axios.post(
+        `${this.bcpApiUrl}/pagos/realizar`,
+        payload);
+        console.log(
+        `[OrdersService] Solicitada liquidación de Deuda BCP (idPagoBCP: ${pagoId}) en el banco.`
+      );
+    } catch (error) {
+      throw new Error(`Error al liquidar deuda en BCP (idPagoBCP: ${pagoId}): ${error.message}`);
+    }
   }
 
   async getOrdenById(ordenId) {
