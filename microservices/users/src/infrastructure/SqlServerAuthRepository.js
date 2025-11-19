@@ -130,6 +130,35 @@ class SqlServerAuthRepository extends IAuthRepository {
       throw new Error(`Error actualizando usuario: ${error.message}`);
     }
   }
+  async findUserById(id) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, id)
+        .query('SELECT * FROM usuarios WHERE id = @id');
+
+      if (result.recordset.length === 0) {
+        return null;
+      }
+
+      const data = result.recordset[0];
+      return new User({
+        id: data.id,
+        email: data.email,
+        passwordHash: data.password_hash,
+        nombre: data.nombre,
+        telefono: data.telefono,
+        activo: data.activo,
+        rol: data.rol,
+        dni: data.dni,
+        avatar_url: data.avatar_url,
+        banner_url: data.banner_url
+      });
+    } catch (error) {
+      throw new Error(`Error buscando usuario por ID: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SqlServerAuthRepository;

@@ -1,5 +1,5 @@
 class User {
-  constructor({ id, email, passwordHash, nombre, telefono, activo,rol, dni }) {
+  constructor({ id, email, passwordHash, nombre, telefono, activo,rol, dni,avatar_url, banner_url }) {
     this.id = id;
     this.email = email;
     this.passwordHash = passwordHash;
@@ -8,6 +8,8 @@ class User {
     this.activo = activo;
     this.rol = rol;
     this.dni = dni;
+    this.avatar_url = avatar_url;
+    this.banner_url = banner_url;
   }
 
   isActive() {

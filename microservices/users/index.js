@@ -22,7 +22,8 @@ const app = express();
 const PORT = process.env.USERS_PORT || 3002;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 const usersRepository = new SqlServerUsersRepository();
 const authRepository = new SqlServerAuthRepository();
@@ -34,8 +35,8 @@ app.post('/api/clientes/sync', authMiddleware, (req, res) => usersController.syn
 app.post('/api/clientes', (req, res) => usersController.createCliente(req, res));
 app.get('/api/clientes/usuario/:usuarioId', (req, res) => usersController.getClienteByUsuario(req, res));
 app.put('/api/clientes/:clienteId', (req, res) => usersController.updateCliente(req, res));
+app.put('/api/users/profile', authMiddleware, (req, res) => usersController.updateProfile(req, res));
 app.get('/api/clientes', (req, res) => usersController.getAllClientes(req, res));
-
 app.post('/api/administradores', (req, res) => usersController.createAdministrador(req, res));
 app.get('/api/administradores/usuario/:usuarioId', (req, res) => usersController.getAdministradorByUsuario(req, res));
 app.get('/api/administradores', (req, res) => usersController.getAllAdministradores(req, res));

@@ -114,6 +114,29 @@ class UsersController {
       res.status(500).json({ error: error.message });
     }
   }
+  async updateProfile(req, res) {
+    try {
+      const { userId, userType } = req.user; 
+      const updateData = req.body;
+
+      if (!userId) {
+         return res.status(401).json({ error: "Usuario no identificado en el token" });
+      }
+
+      const clientData = {
+        ...updateData,
+        usuarioId: userId,
+        userType: userType
+      };
+
+      const updatedUser = await this.usersService.updateUserProfile(clientData);
+
+      res.status(200).json(updatedUser);
+    } catch (error) {
+      console.error("[UsersController] Error updating profile:", error);
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = UsersController;

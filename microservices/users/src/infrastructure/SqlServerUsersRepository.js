@@ -236,6 +236,87 @@ class SqlServerUsersRepository {
       throw new Error(`Error obteniendo administradores: ${error.message}`);
     }
   }
+  async findUserById(id) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, id)
+        .query('SELECT * FROM usuarios WHERE id = @id');
+
+      if (result.recordset.length === 0) {
+        return null;
+      }
+      const data = result.recordset[0];
+      return new User({
+        id: data.id,
+        email: data.email,
+        passwordHash: data.password_hash,
+        nombre: data.nombre,
+        telefono: data.telefono,
+        activo: data.activo,
+        rol: data.rol,
+        dni: data.dni
+      });
+    } catch (error) {
+      throw new Error(`Error buscando usuario por ID: ${error.message}`);
+    }
+  }
+  async updateUser(usuarioId, updateData) {
+    try {
+      const pool = await getPool();
+      const request = pool.request();
+      request.input('id', sql.UniqueIdentifier, usuarioId);
+
+      const fields = [];
+
+      if (updateData.nombre !== undefined) {
+        fields.push('nombre = @nombre');
+        request.input('nombre', sql.NVarChar, updateData.nombre);
+      }
+      if (updateData.telefono !== undefined) {
+        fields.push('telefono = @telefono');
+        request.input('telefono', sql.NVarChar, updateData.telefono);
+      }
+      if (updateData.email !== undefined) {
+        fields.push('email = @email');
+        request.input('email', sql.NVarChar, updateData.email);
+      }
+      if (updateData.avatar_url !== undefined) {
+        fields.push('avatar_url = @avatar_url');
+        request.input('avatar_url', sql.NVarChar, updateData.avatar_url);
+      }
+      if (updateData.banner_url !== undefined) {
+        fields.push('banner_url = @banner_url');
+        request.input('banner_url', sql.NVarChar, updateData.banner_url);
+      }
+      
+      if (updateData.password_hash !== undefined) {
+        fields.push('password_hash = @password_hash');
+        request.input('password_hash', sql.NVarChar, updateData.password_hash);
+      }
+
+      if (fields.length === 0) {
+        return null;
+      }
+
+      const query = `
+        UPDATE usuarios
+        SET ${fields.join(', ')}, updated_at = GETDATE()
+        OUTPUT INSERTED.*
+        WHERE id = @id
+      `;
+
+      const result = await request.query(query);
+      
+      if (result.recordset.length === 0) return null;
+
+      return result.recordset[0];
+
+    } catch (error) {
+      throw new Error(`Error actualizando usuario: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SqlServerUsersRepository;
