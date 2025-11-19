@@ -28,7 +28,9 @@ class SupabaseAuthRepository extends IAuthRepository {
       passwordHash: data.password_hash,
       nombre: data.nombre,
       telefono: data.telefono,
-      activo: data.activo
+      activo: data.activo,
+      avatar_url: data.avatar_url,
+      banner_url: data.banner_url
     });
   }
 
@@ -71,7 +73,9 @@ class SupabaseAuthRepository extends IAuthRepository {
       passwordHash: data.password_hash,
       nombre: data.nombre,
       telefono: data.telefono,
-      activo: data.activo
+      activo: data.activo,
+      avatar_url: data.avatar_url,
+      banner_url: data.banner_url
     });
   }
 }

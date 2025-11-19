@@ -24,7 +24,9 @@ class SqlServerAuthRepository extends IAuthRepository {
         telefono: data.telefono,
         activo: data.activo,
         dni : data.dni,
-        rol : data.rol
+        rol : data.rol,
+        avatar_url: data.avatar_url,
+        banner_url: data.banner_url
       });
     } catch (error) {
       throw new Error(`Error buscando usuario: ${error.message}`);
@@ -58,7 +60,9 @@ class SqlServerAuthRepository extends IAuthRepository {
         telefono: data.telefono,
         activo: data.activo,
         dni: data.dni,
-        rol: data.rol
+        rol: data.rol,
+        avatar_url: data.avatar_url,
+        banner_url: data.banner_url
       });
     } catch (error) {
       throw new Error(`Error creando usuario: ${error.message}`);

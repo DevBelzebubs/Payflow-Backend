@@ -24,7 +24,9 @@ class User {
       telefono: this.telefono,
       activo: this.activo,
       rol: this.rol,
-      dni: this.dni
+      dni: this.dni,
+      avatar_url: this.avatar_url,
+      banner_url: this.banner_url
     };
   }
 }

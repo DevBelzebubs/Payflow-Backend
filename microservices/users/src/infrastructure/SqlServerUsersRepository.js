@@ -256,7 +256,9 @@ class SqlServerUsersRepository {
         telefono: data.telefono,
         activo: data.activo,
         rol: data.rol,
-        dni: data.dni
+        dni: data.dni,
+        avatar_url: data.avatar_url,
+        banner_url: data.banner_url
       });
     } catch (error) {
       throw new Error(`Error buscando usuario por ID: ${error.message}`);
