@@ -43,6 +43,15 @@ class ServicesController {
       res.status(500).json({ error: error.message });
     }
   }
+  async getButacas(req, res) {
+    try {
+      const { idServicio } = req.params;
+      const butacas = await this.servicesService.servicesRepository.findOccupiedSeats(idServicio);
+      res.status(200).json(butacas);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
   async getServicio(req, res) {
     try {
       const { idServicio } = req.params;
@@ -58,7 +67,15 @@ class ServicesController {
       res.status(500).json({ error: error.message });
     }
   }
-
+  async getButacas(req, res) {
+    try {
+      const { idServicio } = req.params;
+      const butacas = await this.servicesService.getOccupiedSeats(idServicio);
+      res.status(200).json(butacas);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
   async getAllServicios(req, res) {
     try {
       const filters = {
@@ -116,6 +133,15 @@ class ServicesController {
       res.status(200).json(servicio.toJSON());
     } catch (error) {
       res.status(400).json({ error: error.message });
+    }
+  }
+  async getTiposEntrada(req, res) {
+    try {
+      const { idServicio } = req.params;
+      const tipos = await this.servicesService.getTicketTypes(idServicio);
+      res.status(200).json(tipos);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   }
 }

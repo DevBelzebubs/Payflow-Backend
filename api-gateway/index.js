@@ -318,8 +318,36 @@ try {
       );
       res.status(error.status || 404).json(error);
     }
+    });
+    app.get("/api/servicios/:idServicio/tipos-entrada", async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        SERVICES_SERVICE_URL,
+        `/api/servicios/${req.params.idServicio}/tipos-entrada`,
+        "GET"
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en tipos-entrada:", error);
+      res.status(error.status || 500).json(error);
+    }
   });
-
+    app.get("/api/servicios/:idServicio/butacas", async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        SERVICES_SERVICE_URL,
+        `/api/servicios/${req.params.idServicio}/butacas`,
+        "GET"
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error(
+        "[Gateway] Error en /api/servicios/:idServicio/butacas (GET):",
+        error
+      );
+      res.status(error.status || 500).json(error);
+    }
+  });
   app.post("/api/servicios", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(

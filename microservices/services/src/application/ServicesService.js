@@ -78,6 +78,12 @@ class ServicesService {
       estado: estado,
     });
   }
+  async getOccupiedSeats(idServicio) {
+    return await this.servicesRepository.findOccupiedSeats(idServicio);
+  }
+  async getTicketTypes(idServicio) {
+    return await this.servicesRepository.findTicketTypesByServiceId(idServicio);
+  }
 }
 
 module.exports = ServicesService;

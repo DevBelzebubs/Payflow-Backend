@@ -272,7 +272,8 @@ class OrdersService {
       notas,
     });
 
-    for (const item of items) {
+      for (const item of items) {
+      // A. Crear el item de la orden
       await this.ordersRepository.createItemOrden({
         orden_id: orden.id,
         producto_id: item.productoId || null,
@@ -283,6 +284,21 @@ class OrdersService {
       });
 
       if (item.servicioId) {
+        if (item.seats && Array.isArray(item.seats) && item.seats.length > 0) {
+            console.log(`[OrdersService] Procesando reserva de butacas para servicio ${item.servicioId}...`);
+            try {
+                await this.ordersRepository.reservarButacas(
+                    item.servicioId,
+                    item.seats,
+                    clienteId
+                );
+                console.log(`[OrdersService] Butacas reservadas con éxito.`);
+            } catch (seatError) {
+                console.error(`[OrdersService] Error crítico reservando butacas: ${seatError.message}`);
+                throw new Error(`Error al reservar butacas: ${seatError.message}`);
+            }
+        }
+
         try {
           const servicioInfo = await axios.get(
             `${this.servicesServiceUrl}/api/servicios/${item.servicioId}`
@@ -308,9 +324,7 @@ class OrdersService {
         }
       }
     }
-
     const ordenCompleta = await this.getOrdenById(orden.id);
-
     return {
       ordenPayflow: ordenCompleta.toJSON(),
       comprobante: comprobante,

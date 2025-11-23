@@ -121,6 +121,19 @@ class SqlServerServicesRepository {
       throw new Error(`Error obteniendo servicios: ${error.message}`);
     }
   }
+  async findOccupiedSeats(servicioId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('servicio_id', sql.UniqueIdentifier, servicioId)
+        .query('SELECT fila as row, columna as col FROM butacas_reservadas WHERE servicio_id = @servicio_id');
+      
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Error obteniendo butacas: ${error.message}`);
+    }
+  }
 
   async updateServicio(idServicio, servicioData) {
     try {
@@ -172,6 +185,32 @@ class SqlServerServicesRepository {
       return true;
     } catch (error) {
       throw new Error(`Error eliminando servicio: ${error.message}`);
+    }
+  }
+  async findOccupiedSeats(servicioId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('servicio_id', sql.UniqueIdentifier, servicioId)
+        .query('SELECT fila as row, columna as col FROM butacas_reservadas WHERE servicio_id = @servicio_id');
+      
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Error obteniendo butacas: ${error.message}`);
+    }
+  }
+  async findTicketTypesByServiceId(servicioId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('servicio_id', sql.UniqueIdentifier, servicioId)
+        .query('SELECT * FROM tipos_entrada WHERE servicio_id = @servicio_id');
+      
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Error obteniendo tipos de entrada: ${error.message}`);
     }
   }
 }

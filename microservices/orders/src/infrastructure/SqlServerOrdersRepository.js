@@ -14,9 +14,37 @@ class SqlServerOrdersRepository {
         .input('estado', sql.NVarChar, ordenData.estado)
         .input('notas', sql.NVarChar, ordenData.notas)
         .query(`
+          -- 1. Declaramos una tabla variable para capturar la salida
+          DECLARE @OutputTbl TABLE (
+            id UNIQUEIDENTIFIER,
+            cliente_id UNIQUEIDENTIFIER,
+            total DECIMAL(10, 2),
+            subtotal DECIMAL(10, 2),
+            impuestos DECIMAL(10, 2),
+            estado NVARCHAR(50),
+            notas NVARCHAR(MAX),
+            created_at DATETIME2,
+            updated_at DATETIME2
+          );
+
+          -- 2. Insertamos usando OUTPUT INTO hacia la tabla variable
+          -- Esto es compatible con tu trigger 'trg_ordenes_compra_historial'
           INSERT INTO ordenes_compra (cliente_id, total, subtotal, impuestos, estado, notas)
-          OUTPUT INSERTED.*
-          VALUES (@cliente_id, @total, @subtotal, @impuestos, @estado, @notas)
+          OUTPUT 
+            INSERTED.id, 
+            INSERTED.cliente_id, 
+            INSERTED.total, 
+            INSERTED.subtotal, 
+            INSERTED.impuestos, 
+            INSERTED.estado, 
+            INSERTED.notas, 
+            INSERTED.created_at, 
+            INSERTED.updated_at 
+          INTO @OutputTbl
+          VALUES (@cliente_id, @total, @subtotal, @impuestos, @estado, @notas);
+
+          -- 3. Devolvemos los datos desde la tabla variable
+          SELECT * FROM @OutputTbl;
         `);
 
       const data = result.recordset[0];
@@ -188,6 +216,36 @@ class SqlServerOrdersRepository {
       return await this.findOrdenById(ordenId);
     } catch (error) {
       throw new Error(`Error actualizando orden: ${error.message}`);
+    }
+  }
+  async reservarButacas(servicioId, listaButacas, usuarioId) {
+    const pool = await getPool();
+    const transaction = new sql.Transaction(pool);
+    
+    try {
+      await transaction.begin();
+      
+      for (const butaca of listaButacas) {
+        const request = new sql.Request(transaction);
+        await request
+          .input('servicio_id', sql.UniqueIdentifier, servicioId)
+          .input('fila', sql.NVarChar, butaca.row)
+          .input('columna', sql.Int, butaca.col)
+          .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+          .query(`
+             INSERT INTO butacas_reservadas (servicio_id, fila, columna, usuario_id)
+             VALUES (@servicio_id, @fila, @columna, @usuario_id)
+          `);
+      }
+
+      await transaction.commit();
+      return true;
+    } catch (error) {
+      await transaction.rollback();
+      if (error.number === 2601 || error.number === 2627) {
+         throw new Error("Una o más butacas seleccionadas ya han sido ocupadas.");
+      }
+      throw error;
     }
   }
 }
