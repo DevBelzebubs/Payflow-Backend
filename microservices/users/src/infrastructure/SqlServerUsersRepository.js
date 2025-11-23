@@ -34,7 +34,8 @@ class SqlServerUsersRepository {
         usuarioId: usuarioId,
         nombre: userData.nombre,
         correo: userData.email,
-        telefono: userData.telefono
+        telefono: userData.telefono,
+        dni: userData.dni
       });
 
     } catch (error) {
@@ -59,7 +60,8 @@ class SqlServerUsersRepository {
             u.id as usuarioId,
             u.nombre,
             u.email as correo, -- Mapea email a correo
-            u.telefono
+            u.telefono,
+            u.dni
           FROM 
             clientes c
           INNER JOIN 

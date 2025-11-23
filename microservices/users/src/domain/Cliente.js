@@ -1,5 +1,5 @@
 class Cliente {
-  constructor({ id, fechaRegistro, usuarioId, nombre, correo, telefono }) {
+  constructor({ id, fechaRegistro, usuarioId, nombre, correo, telefono,dni }) {
     this.id = id;
     this.fechaRegistro = fechaRegistro;
 
@@ -7,6 +7,7 @@ class Cliente {
     this.nombre = nombre;
     this.correo = correo;
     this.telefono = telefono;
+    this.dni = dni;
   }
 
   toJSON() {
@@ -17,6 +18,7 @@ class Cliente {
       nombre: this.nombre,
       correo: this.correo,
       telefono: this.telefono,
+      dni: this.dni,
     };
   }
 }

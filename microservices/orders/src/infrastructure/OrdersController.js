@@ -29,13 +29,10 @@ class OrdersController {
             return res.status(400).json({ error: "El item de la orden debe tener 'productoId' o 'servicioId'." });
         }
 
-      } else if (datosPago.origen === 'PAYFLOW') {
-        datosPago.userToken = req.headers.authorization;
-        if (!datosPago.cuentaId) {
-           return res.status(400).json({ error: 'Datos de pago Payflow incompletos (cuentaId)' });
-        }
+      } else if (datosPago.origen === 'MERCADOPAGO') {
+        //Acá no va nd xd
       } else {
-         return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP' o 'PAYFLOW'" });
+         return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP', 'PAYFLOW' o 'MERCADOPAGO'" });
       }
       const resultado = await this.ordersService.createOrden({
         clienteId,

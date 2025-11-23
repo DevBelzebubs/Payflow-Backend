@@ -1,4 +1,6 @@
 const axios = require("axios");
+const { MercadoPagoConfig, Preference } = require('mercadopago');
+const client = new MercadoPagoConfig({ accessToken: 'ACCESS_TOKEN' });
 
 class OrdersService {
   constructor(ordersRepository) {
@@ -126,6 +128,33 @@ class OrdersService {
     let subtotal = 0;
     let servicioIdParaPagar = null;
     let descripcionCompra = "Compra en Payflow";
+    if (datosPago.origen === 'MERCADOPAGO') {
+       const orden = await this.ordersRepository.createOrden({
+           ...ordenData,
+           estado: 'PENDIENTE_PAGO'
+       });
+       const preference = new Preference(client);
+       const result = await preference.create({
+        body:{
+          items: ordenData.items.map(item => ({
+            title: `Producto/Servicio ${item.id}`,
+            quantity: item.cantidad,
+            unit_price: Number(item.precioUnitario)
+          })),
+          external_reference: orden.id,
+          back_urls:{
+            success: "http://localhost:3000/dashboard/history?status=success",
+            failure: "http://localhost:3000/dashboard/payment/checkout?status=failure",
+            pending: "http://localhost:3000/dashboard/payment/checkout?status=pending"
+          }
+        }
+       });
+       return {
+        ordenPayflow: orden.toJSON(),
+        urlPago: result.init_point,
+        modo : 'REDIRECT'
+       }
+      }
     if (esServicioBCP) {
       if (!datosPago.monto) {
         throw new Error(
