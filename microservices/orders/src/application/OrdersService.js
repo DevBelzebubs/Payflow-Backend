@@ -15,7 +15,7 @@ class OrdersService {
 
     // Token de PRUEBA (Sandbox)
     this.mpClient = new MercadoPagoConfig({ 
-        accessToken: process.env.MP_ACCESS_TOKEN || 'APP_USR-4185258706689566-112317-136adc9dfbc200960d9a8887e592eb5e-2443484377' 
+        accessToken: process.env.MP_ACCESS_TOKEN 
     });
   }
 
@@ -106,7 +106,6 @@ class OrdersService {
     if (datosPago.origen === 'MERCADOPAGO') {
         console.log("[OrdersService] Iniciando flujo Mercado Pago...");
         const orderType = esProductoPayflow ? 'cart' : 'service';
-        const preference = new Preference(this.mpClient);
         
         const ordenPendiente = await this.ordersRepository.createOrden({
             cliente_id: clienteId, 
@@ -133,7 +132,6 @@ class OrdersService {
 
         const preference = new Preference(this.mpClient);
         
-        // URLs apuntando al PUERTO 3010 (Frontend)
         const mpBody = {
             items: [
                 {
