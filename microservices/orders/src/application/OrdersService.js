@@ -103,9 +103,10 @@ class OrdersService {
     const total = subtotal + impuestos;
     let comprobante = null;
 
-    // --- FLUJO MERCADO PAGO ---
     if (datosPago.origen === 'MERCADOPAGO') {
         console.log("[OrdersService] Iniciando flujo Mercado Pago...");
+        const orderType = esProductoPayflow ? 'cart' : 'service';
+        const preference = new Preference(this.mpClient);
         
         const ordenPendiente = await this.ordersRepository.createOrden({
             cliente_id: clienteId, 
@@ -144,7 +145,7 @@ class OrdersService {
             ],
             external_reference: ordenPendiente.id,
             back_urls: {
-                success: "http://localhost:3010/dashboard/history?status=success",
+                success: "http://localhost:3010/dashboard/history?status=success=${orderType}",
                 failure: "http://localhost:3010/dashboard/payment/checkout?status=failure",
                 pending: "http://localhost:3010/dashboard/payment/checkout?status=pending"
             },
@@ -196,7 +197,7 @@ class OrdersService {
         total,
         subtotal,
         impuestos,
-        estado: "confirmada", 
+        estado: "CONFIRMADA", 
         notas
     });
 
