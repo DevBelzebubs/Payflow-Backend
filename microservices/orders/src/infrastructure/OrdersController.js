@@ -139,5 +139,21 @@ class OrdersController {
         });
     }
   }
+  async receiveWebhook(req, res) {
+    try {
+      const { type, topic } = req.query;
+      const id = req.query.id || req.query['data.id'];
+
+      if (id && (type === 'payment' || topic === 'payment')) {
+        console.log(`[Webhook] Notificación de pago recibida. ID: ${id}`);
+        await this.ordersService.procesarWebhookMercadoPago(id);
+      }
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("[Webhook] Error procesando notificación:", error.message);
+      res.sendStatus(500);
+    }
+  }
+  
 }
 module.exports = OrdersController;

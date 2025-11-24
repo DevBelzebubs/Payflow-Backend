@@ -433,6 +433,22 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
+  app.post("/api/ordenes/webhook", async (req, res) => {
+    try {
+      const queryString = new URLSearchParams(req.query).toString();
+      const url = `/api/ordenes/webhook?${queryString}`;
+      
+      await axios({
+        method: 'post',
+        url: `${ORDERS_SERVICE_URL}${url}`,
+        data: req.body,
+      });
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("[Gateway] Error en webhook:", error.message);
+      res.sendStatus(500);
+    }
+  });
 
   app.get("/api/ordenes/:ordenId", authMiddleware, async (req, res) => {
     try {
