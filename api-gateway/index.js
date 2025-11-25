@@ -318,8 +318,8 @@ try {
       );
       res.status(error.status || 404).json(error);
     }
-    });
-    app.get("/api/servicios/:idServicio/tipos-entrada", async (req, res) => {
+  });
+  app.get("/api/servicios/:idServicio/tipos-entrada", async (req, res) => {
     try {
       const data = await proxyRequest(
         SERVICES_SERVICE_URL,
@@ -332,7 +332,7 @@ try {
       res.status(error.status || 500).json(error);
     }
   });
-    app.get("/api/servicios/:idServicio/butacas", async (req, res) => {
+  app.get("/api/servicios/:idServicio/butacas", async (req, res) => {
     try {
       const data = await proxyRequest(
         SERVICES_SERVICE_URL,
@@ -437,9 +437,9 @@ try {
     try {
       const queryString = new URLSearchParams(req.query).toString();
       const url = `/api/ordenes/webhook?${queryString}`;
-      
+
       await axios({
-        method: 'post',
+        method: "post",
         url: `${ORDERS_SERVICE_URL}${url}`,
         data: req.body,
       });
@@ -566,6 +566,28 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
+  app.post(
+    "/api/cuentas-bancarias/recargar",
+    authMiddleware,
+    async (req, res) => {
+      try {
+        const data = await proxyRequest(
+          BANK_ACCOUNTS_SERVICE_URL,
+          "/api/cuentas-bancarias/recargar",
+          "POST",
+          req.body,
+          req.headers
+        );
+        res.status(200).json(data);
+      } catch (error) {
+        console.error(
+          "[Gateway] Error en /api/cuentas-bancarias/recargar:",
+          error
+        );
+        res.status(error.status || 400).json(error);
+      }
+    }
+  );
   app.get(
     "/api/cuentas-bancarias/mis-cuentas",
     authMiddleware,

@@ -28,7 +28,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
-        saldo: data.saldo
+        saldo: data.saldo,
       });
     } catch (error) {
       throw new Error(`Error creando cuenta bancaria: ${error.message}`);
@@ -39,27 +39,31 @@ class SqlServerBankAccountsRepository {
       const pool = await getPool();
       const result = await pool
         .request()
-        .input('usuario_id', sql.UniqueIdentifier, usuarioId)
-        .query(`
+        .input("usuario_id", sql.UniqueIdentifier, usuarioId).query(`
           SELECT c.* FROM cuentas_bancarias c
           INNER JOIN clientes cl ON c.cliente_id = cl.id
           WHERE cl.usuario_id = @usuario_id
           ORDER BY c.created_at DESC
         `);
 
-      return result.recordset.map(data => new CuentaBancaria({
-        id: data.id,
-        clienteId: data.cliente_id,
-        banco: data.banco,
-        numeroCuenta: data.numero_cuenta,
-        tipoCuenta: data.tipo_cuenta,
-        titular: data.titular,
-        activo: data.activo,
-        createdAt: data.created_at,
-        saldo: data.saldo
-      }));
+      return result.recordset.map(
+        (data) =>
+          new CuentaBancaria({
+            id: data.id,
+            clienteId: data.cliente_id,
+            banco: data.banco,
+            numeroCuenta: data.numero_cuenta,
+            tipoCuenta: data.tipo_cuenta,
+            titular: data.titular,
+            activo: data.activo,
+            createdAt: data.created_at,
+            saldo: data.saldo,
+          })
+      );
     } catch (error) {
-      throw new Error(`Error buscando cuentas bancarias por usuario: ${error.message}`);
+      throw new Error(
+        `Error buscando cuentas bancarias por usuario: ${error.message}`
+      );
     }
   }
   async findCuentaParaDebito(cuentaId, clienteId) {
@@ -67,9 +71,8 @@ class SqlServerBankAccountsRepository {
       const pool = await getPool();
       const result = await pool
         .request()
-        .input('id', sql.UniqueIdentifier, cuentaId)
-        .input('cliente_id', sql.UniqueIdentifier, clienteId)
-        .query(`
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("cliente_id", sql.UniqueIdentifier, clienteId).query(`
           SELECT * FROM cuentas_bancarias 
           WHERE id = @id AND cliente_id = @cliente_id
         `);
@@ -88,7 +91,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
-        saldo: data.saldo
+        saldo: data.saldo,
       });
     } catch (error) {
       throw new Error(`Error buscando cuenta para débito: ${error.message}`);
@@ -99,9 +102,9 @@ class SqlServerBankAccountsRepository {
       const pool = await getPool();
       await pool
         .request()
-        .input('id', sql.UniqueIdentifier, cuentaId)
-        .input('saldo', sql.Decimal(10, 2), nuevoSaldo)
-        .query('UPDATE cuentas_bancarias SET saldo = @saldo WHERE id = @id');
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("saldo", sql.Decimal(10, 2), nuevoSaldo)
+        .query("UPDATE cuentas_bancarias SET saldo = @saldo WHERE id = @id");
       return true;
     } catch (error) {
       throw new Error(`Error actualizando saldo: ${error.message}`);
@@ -129,7 +132,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
-        saldo: data.saldo
+        saldo: data.saldo,
       });
     } catch (error) {
       throw new Error(`Error buscando cuenta bancaria: ${error.message}`);
@@ -157,7 +160,7 @@ class SqlServerBankAccountsRepository {
             titular: data.titular,
             activo: data.activo,
             createdAt: data.created_at,
-            saldo: data.saldo
+            saldo: data.saldo,
           })
       );
     } catch (error) {
@@ -215,7 +218,7 @@ class SqlServerBankAccountsRepository {
         titular: data.titular,
         activo: data.activo,
         createdAt: data.created_at,
-        saldo : data.saldo
+        saldo: data.saldo,
       });
     } catch (error) {
       throw new Error(`Error actualizando cuenta bancaria: ${error.message}`);
@@ -233,6 +236,49 @@ class SqlServerBankAccountsRepository {
       return true;
     } catch (error) {
       throw new Error(`Error eliminando cuenta bancaria: ${error.message}`);
+    }
+  }
+  async findMonederoByClienteId(clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("cliente_id", sql.UniqueIdentifier, clienteId)
+        .query(`SELECT TOP 1 * FROM cuentas_bancarias 
+          WHERE cliente_id = @cliente_id 
+          AND LOWER(banco) LIKE '%monedero payflow%'
+          AND tipo_cuenta = 'ahorro'`);
+      if (result.recordset.length === 0) return null;
+      const data = result.recordset[0];
+      return new CuentaBancaria({
+        id: data.id,
+        clienteId: data.cliente_id,
+        banco: data.banco,
+        numeroCuenta: data.numero_cuenta,
+        tipoCuenta: data.tipo_cuenta,
+        titular: data.titular,
+        activo: data.activo,
+        createdAt: data.created_at,
+        saldo: data.saldo,
+      });
+    } catch (error) {
+      throw new Error(`Error buscando monedero: ${error.message}`);
+    }
+  }
+  async incrementarSaldo() {
+    try {
+      const pool = await getPool();
+      await pool()
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("monto", sql.Decimal(10, 2), monto).query(`
+          UPDATE cuentas_bancarias 
+          SET saldo = saldo + @monto, updated_at = GETDATE()
+          WHERE id = @id
+        `);
+        return true;
+    } catch (error) {
+      throw new Error(`Error incrementando saldo: ${error.message}`);
     }
   }
 }

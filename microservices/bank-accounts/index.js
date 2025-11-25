@@ -19,14 +19,10 @@ const bankAccountsRepository = new SqlServerBankAccountsRepository();
 const bankAccountsService = new BankAccountsService(bankAccountsRepository);
 const bankAccountsController = new BankAccountsController(bankAccountsService);
 
-// --- 2. AÑADIR LA RUTA ESPECÍFICA PRIMERO ---
-// Esta ruta (la más específica) debe ir ANTES que las rutas dinámicas
 app.get('/api/cuentas-bancarias/mis-cuentas', authMiddleware, (req, res) => bankAccountsController.getMyUnifiedAccounts(req, res));
-// --- FIN DE LA RUTA ---
-
 app.post('/api/cuentas-bancarias', (req, res) => bankAccountsController.createCuentaBancaria(req, res));
 app.post('/api/cuentas-bancarias/debitar', authMiddleware, (req, res) => bankAccountsController.realizarDebito(req, res));
-// --- 3. RUTAS DINÁMICAS VAN DESPUÉS ---
+app.post('/api/cuentas-bancarias/recargar', authMiddleware, (req, res) => bankAccountsController.recargarMonedero(req, res));
 app.get('/api/cuentas-bancarias/cliente/:clienteId', (req, res) => bankAccountsController.getCuentasByCliente(req, res));
 app.get('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.getCuentaBancaria(req, res)); // Esta debe ir después de /mis-cuentas
 app.put('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.updateCuentaBancaria(req, res));

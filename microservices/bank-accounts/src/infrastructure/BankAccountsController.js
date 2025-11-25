@@ -120,6 +120,19 @@ class BankAccountsController {
       res.status(400).json({ error: error.message });
     }
   }
+  async recargarMonedero(){
+    try {
+      const { cuentaOrigenId, monto } = req.body;
+      if (!cuentaOrigenId || !monto) {
+        return res.status(400).json({ error: "cuentaOrigenId y monto son requeridos" });
+      }
+      const resultado = await this.bankAccountsService.recargarMonedero(req.user, cuentaOrigenId, parseFloat(monto));
+      res.status(200).json(resultado);
+    } catch (error) {
+      console.error("Error en recargarMonedero:", error);
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = BankAccountsController;
