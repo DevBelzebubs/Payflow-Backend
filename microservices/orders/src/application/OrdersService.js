@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago'); // <--- IMPORTANTE: Payment agregado
+const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
 
 class OrdersService {
   constructor(ordersRepository) {
@@ -8,14 +8,15 @@ class OrdersService {
     this.servicesServiceUrl = process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
     this.bankAccountsServiceUrl = process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
     this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    this.bcpAuthUrl = (process.env.BCP_API_URL || "http://localhost:8080/api/s2s").replace("/api/s2s", "/auth/generar-token-servicio");
+    
+    const bcpBase = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
+    this.bcpAuthUrl = bcpBase.replace("/api/s2s", "/auth/generar-token-servicio");
 
     this.serviceTokenCache = { token: null, isFetching: false };
     this.PAYFLOW_MASTER_ACCOUNT_BCP = "CUENTA-MAESTRA-PAYFLOW-001";
 
-    // Token de PRUEBA (Sandbox)
     this.mpClient = new MercadoPagoConfig({ 
-        accessToken: process.env.ACCESS_TOKEN
+        accessToken: process.env.ACCESS_TOKEN || 'TEST-TOKEN-GENERICO'
     });
   }
 
@@ -36,7 +37,8 @@ class OrdersService {
       return this.serviceTokenCache.token;
     } catch (e) {
       this.serviceTokenCache.token = null;
-      throw new Error(`Error token BCP: ${e.message}`);
+      console.warn(`[OrdersService] Advertencia: No se pudo obtener token BCP: ${e.message}`);
+      return null;
     } finally {
       this.serviceTokenCache.isFetching = false;
     }
@@ -61,9 +63,11 @@ class OrdersService {
     const { clienteId, items, notas } = ordenData;
     if (!clienteId) throw new Error("El clienteId es requerido para crear la orden.");
 
+    console.log(`[OrdersService] Iniciando creación de orden para cliente ${clienteId}`);
+
     const mainItem = items[0];
-    let esProductoPayflow = !!mainItem.productoId;
     let esServicioBCP = !!mainItem.servicioId && !!datosPago.idPagoBCP;
+    let esProductoPayflow = !!mainItem.productoId;
     let subtotal = 0;
     let servicioIdParaPagar = null;
     let descripcionCompra = "Compra en Payflow";
@@ -99,13 +103,12 @@ class OrdersService {
       }
     }
 
-    const impuestos = subtotal * 0.16; 
+    const impuestos = subtotal * 0.18;
     const total = subtotal + impuestos;
     let comprobante = null;
 
     if (datosPago.origen === 'MERCADOPAGO') {
-        console.log("[OrdersService] Iniciando flujo Mercado Pago...");
-        const orderType = esProductoPayflow ? 'cart' : 'service';
+        console.log("[OrdersService] Generando preferencia Mercado Pago...");
         
         const ordenPendiente = await this.ordersRepository.createOrden({
             cliente_id: clienteId, 
@@ -131,7 +134,6 @@ class OrdersService {
         }
 
         const preference = new Preference(this.mpClient);
-        
         const mpBody = {
             items: [
                 {
@@ -143,11 +145,11 @@ class OrdersService {
             ],
             external_reference: ordenPendiente.id,
             back_urls: {
-                success: "http://localhost:3010/dashboard/history?status=success=${orderType}",
+                success: "http://localhost:3010/dashboard/history?status=success&type=cart",
                 failure: "http://localhost:3010/dashboard/payment/checkout?status=failure",
                 pending: "http://localhost:3010/dashboard/payment/checkout?status=pending"
             },
-            //auto_return: "approved",
+            auto_return: "approved",
         };
 
         try {
@@ -164,7 +166,6 @@ class OrdersService {
         }
     }
 
-    // --- FLUJO BCP / PAYFLOW ---
     if (datosPago.origen === "BCP") {
         const debitoRequest = {
             dniCliente: datosPago.dniCliente,
@@ -182,6 +183,7 @@ class OrdersService {
         comprobante = bcpRes.data;
 
     } else if (datosPago.origen === "PAYFLOW") {
+        console.log(`[OrdersService] Iniciando débito interno Payflow. Cuenta: ${datosPago.cuentaId}, Monto: ${total}`);
         await axios.post(`${this.bankAccountsServiceUrl}/api/cuentas-bancarias/debitar`, {
             cuentaId: datosPago.cuentaId,
             monto: total
@@ -189,7 +191,6 @@ class OrdersService {
         
         if (esServicioBCP) await this.liquidarDeudaEnBcp(datosPago.idPagoBCP);
     }
-
     const orden = await this.ordersRepository.createOrden({
         cliente_id: clienteId, 
         total,
@@ -198,6 +199,8 @@ class OrdersService {
         estado: "CONFIRMADA", 
         notas
     });
+
+    console.log(`[OrdersService] Orden ${orden.id} creada exitosamente. Procesando items...`);
 
     for (const item of items) {
         await this.ordersRepository.createItemOrden({
@@ -208,6 +211,21 @@ class OrdersService {
             precio_unitario: item.precioUnitario,
             subtotal: item.subtotal
         });
+
+        if (item.productoId) {
+            try {
+                console.log(`[OrdersService] 📉 Descontando stock para producto ${item.productoId}. Cantidad a restar: ${item.cantidad}`);
+                const stockUrl = `${this.productsServiceUrl}/api/productos/${item.productoId}/stock`;
+                await axios.patch(stockUrl, {
+                    cantidad: -item.cantidad
+                });
+                console.log(`[OrdersService] ✅ Stock actualizado correctamente.`);
+            } catch (stockError) {
+                console.error(
+                    `[OrdersService] ❌ ERROR CRÍTICO al actualizar stock del producto ${item.productoId}: ${stockError.message}`
+                );
+            }
+        }
 
         if (item.servicioId && item.seats) {
              await this.ordersRepository.reservarButacas(item.servicioId, item.seats, clienteId);
@@ -223,30 +241,34 @@ class OrdersService {
 
   async procesarWebhookMercadoPago(paymentId) {
     try {
-      // 1. Consultar a Mercado Pago
       const payment = new Payment(this.mpClient);
       const paymentData = await payment.get({ id: paymentId });
       
       const { status, external_reference } = paymentData;
 
-      if (status === 'approved') {
+      if (status === 'approved' && external_reference) {
           console.log(`[OrdersService] Pago ${paymentId} APROBADO. Orden vinculada: ${external_reference}`);
           
-          if (external_reference) {
-              const orden = await this.ordersRepository.findOrdenById(external_reference);
-              
-              if (orden && orden.estado !== 'confirmada') {
-                  await this.ordersRepository.updateOrden(external_reference, {
-                      estado: 'confirmada',
-                      notas: `Pago confirmado por Mercado Pago. ID: ${paymentId}`
-                  });
-                  console.log(`[OrdersService] Orden ${external_reference} CONFIRMADA.`);
-              } else {
-                  console.log(`[OrdersService] La orden ${external_reference} ya estaba procesada.`);
+          const orden = await this.ordersRepository.findOrdenById(external_reference);
+          
+          if (orden && orden.estado !== 'confirmada') {
+              await this.ordersRepository.updateOrden(external_reference, {
+                  estado: 'confirmada',
+                  notas: `Pago confirmado por Mercado Pago. ID: ${paymentId}`
+              });              
+              if (orden.items && orden.items.length > 0) {
+                  for (const item of orden.items) {
+                      if (item.producto_id) {
+                          try {
+                              await axios.patch(`${this.productsServiceUrl}/api/productos/${item.producto_id}/stock`, {
+                                  cantidad: -item.cantidad
+                              });
+                          } catch (e) { console.error("Error descontando stock en webhook:", e.message); }
+                      }
+                  }
               }
+              console.log(`[OrdersService] Orden ${external_reference} CONFIRMADA.`);
           }
-      } else {
-          console.log(`[OrdersService] Pago ${paymentId} estado: ${status}`);
       }
     } catch (error) {
       console.error(`[OrdersService] Error verificando pago ${paymentId}:`, error.message);
@@ -266,7 +288,9 @@ class OrdersService {
   async getOrdenById(id) { return await this.ordersRepository.findOrdenById(id); }
   async getOrdenesByCliente(id) { return await this.ordersRepository.findOrdenesByCliente(id); }
   async getAllOrdenes() { return await this.ordersRepository.findAllOrdenes(); }
-  async getCuentasByDni(dni) { /* Lógica existente */ }
+  async getCuentasByDni(dni) { 
+      return []; 
+  }
 }
 
 module.exports = OrdersService;

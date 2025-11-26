@@ -125,7 +125,7 @@ class SqlServerOrdersRepository {
       const ordenesResult = await pool
         .request()
         .input('cliente_id', sql.UniqueIdentifier, clienteId)
-        .query('SELECT * FROM ordenes_compra WHERE cliente_id = @cliente_id ORDER BY created_at DESC');
+        .query(`SELECT * FROM ordenes_compra WHERE cliente_id = @cliente_id AND estado != 'pendiente' ORDER BY created_at DESC`);
 
       const ordenes = [];
       for (const ordenData of ordenesResult.recordset) {

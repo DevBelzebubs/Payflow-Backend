@@ -7,7 +7,10 @@ class OrdersController {
     try {
       const { clienteId, items, notas, datosPago } = req.body;
       const bcpUser = req.user;
-
+      const authToken = req.headers.authorization;
+      if (datosPago) {
+        datosPago.userToken = authToken;
+      }
       if (!clienteId || !items || items.length === 0 || !datosPago) {
         return res.status(400).json({ error: 'clienteId, items y datosPago son requeridos' });
       }
@@ -31,6 +34,10 @@ class OrdersController {
 
       } else if (datosPago.origen === 'MERCADOPAGO') {
         //Acá no va nd xd
+      } else if (datosPago.origen === 'PAYFLOW'){
+        if (!datosPago.cuentaId) {
+            return res.status(400).json({ error: "El pago con 'PAYFLOW' requiere 'cuentaId'." });
+         }
       } else {
          return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP', 'PAYFLOW' o 'MERCADOPAGO'" });
       }
