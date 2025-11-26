@@ -1,10 +1,15 @@
 const axios = require("axios");
+
 class ServicesService {
   constructor(servicesRepository) {
     this.servicesRepository = servicesRepository;
-    this.bcpApiUrl = (
-      process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
-    ).replace("/api/s2s", "/auth/generar-token-servicio");
+    const bcpFullUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
+    const urlObj = new URL(bcpFullUrl);
+    this.bcpBaseUrl = urlObj.origin; 
+
+    this.bcpAuthUrl = `${this.bcpBaseUrl}/auth/generar-token-servicio`;
+    this.bcpPagosUrl = `${this.bcpBaseUrl}/api/pagos`;
+
     this.serviceTokenCache = {
       token: null,
       isFetching: false,
@@ -23,15 +28,18 @@ class ServicesService {
   async getServicioById(idServicio) {
     return await this.servicesRepository.findServicioById(idServicio);
   }
+
   async getValidToken() {
-    if (this.serviceTokenCache) {
+    if (this.serviceTokenCache.token) {
       return this.serviceTokenCache.token;
     }
     return await this.refreshServiceToken();
   }
+
   async getAllServicios(filters = {}) {
     return await this.servicesRepository.findAllServicios(filters);
   }
+
   async refreshServiceToken() {
     if (this.serviceTokenCache.isFetching) {
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -39,12 +47,15 @@ class ServicesService {
     }
     try {
       this.serviceTokenCache.isFetching = true;
-      console.log("[ServicesService] Solicitando token S2S a BCP...");
+      console.log(`[ServicesService] Solicitando token S2S a BCP en: ${this.bcpAuthUrl}`);
+      
       const response = await axios.get(this.bcpAuthUrl, { timeout: 5000 });
-      const newToken = response.data?.token || response.data?.data?.token;
+      const newToken = response.data?.data?.token || response.data?.token;
+
       if (!newToken) {
-        throw new Error("BCP no devolvió un token S2S válido.");
+        throw new Error("BCP no devolvió un token S2S válido en la estructura esperada.");
       }
+      
       this.serviceTokenCache.token = newToken;
       return newToken;
     } catch (e) {
@@ -55,23 +66,27 @@ class ServicesService {
       this.serviceTokenCache.isFetching = false;
     }
   }
+
   async getServiciosBCP(userBcpData) {
     const { dni, clienteId } = userBcpData;
     if (!dni) {
       throw new Error("El token JWT de BCP no contiene el claim 'dni'.");
     }
     try {
-      const token = await this.getValidServiceToken();
-      const urlConsulta = `${this.bcpApiUrl.replace('/s2s', '')}/pagos/pendientes/usuario/${dni}`;
+      const token = await this.getValidToken();
+      const urlConsulta = `${this.bcpPagosUrl}/pendientes/usuario/${dni}`;
+      
       const response = await axios.get(urlConsulta, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
       const deudasBCP = response.data.data || response.data;
+      
       const serviciosTransformados = deudasBCP.map((deuda) => ({
         idServicio: `BCP-${deuda.idPago}`,
-        nombre: deuda.servicio || deuda.empresa || "Servicio BCP",
-        descripcion: `Vence: ${deuda.fechaVencimiento} - Código: ${deuda.codigoCliente}`,
-        recibo: deuda.monto,
+        nombre: deuda.nombreServicio || deuda.servicio || "Servicio BCP",
+        descripcion: `Vence: ${deuda.fecha || 'N/A'}`,
+        recibo: deuda.montoPendiente || deuda.monto,
 
         tipo_servicio: "UTILIDAD",
         imagenURL: null,
@@ -81,18 +96,18 @@ class ServicesService {
         info_adicional_json: {
           origen: "BCP",
           idPagoBCP: deuda.idPago,
-          idDeuda: deuda.idDeuda,
-          moneda: deuda.moneda,
+          moneda: "PEN",
         },
       }));
       return serviciosTransformados;
     } catch (error) {
       console.error(
-        `[ServicesService] Error consultando BCP: ${error.message}`
+        `[ServicesService] Error consultando BCP (getServiciosBCP): ${error.message}`
       );
       return [];
     }
   }
+
   async updateServicio(idServicio, servicioData) {
     const dataToUpdate = {};
     if (servicioData.nombre !== undefined)
@@ -116,38 +131,48 @@ class ServicesService {
       estado: estado,
     });
   }
+
   async getOccupiedSeats(idServicio) {
     return await this.servicesRepository.findOccupiedSeats(idServicio);
   }
+
   async getTicketTypes(idServicio) {
     return await this.servicesRepository.findTicketTypesByServiceId(idServicio);
   }
+
   async getMisDeudasPendientes(userTokenData) {
-    const { dni, userType } = userTokenData;
+    const { dni } = userTokenData;
     let bcpDebts = [];
-    if (userType === "BCP" && dni) {
+    
+    if (dni) {
       try {
-        const token = await this.getValidServiceToken();
-        const response = await axios.get(
-          `${this.bcpApiUrl.replace(
-            "/s2s",
-            ""
-          )}/pagos/pendientes/usuario/${dni}`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        if (response.data.success) {
-          bcpDebts = response.data.data.map((pago) => ({
+        const token = await this.getValidToken();
+        
+        // URL Correcta: http://localhost:8080/api/pagos/pendientes/usuario/{dni}
+        const urlConsulta = `${this.bcpPagosUrl}/pendientes/usuario/${dni}`;
+        
+        console.log(`[ServicesService] Consultando deudas a: ${urlConsulta}`);
+
+        const response = await axios.get(urlConsulta, { 
+            headers: { Authorization: `Bearer ${token}` } 
+        });
+
+        const datos = response.data.data || response.data;
+
+        if (Array.isArray(datos)) {
+          bcpDebts = datos.map((pago) => ({
             id: `BCP-${pago.idPago}`,
-            nombre: pago.nombreServicio,
-            monto: pago.monto,
-            fechaVencimiento: pago.fecha,
+            nombre: pago.nombreServicio || "Servicio Desconocido",
+            monto: pago.montoPendiente || pago.monto,
+            fechaVencimiento: pago.fecha || new Date().toISOString(),
             estado: "PENDIENTE",
             origen: "BCP",
             logo: "https://via.placeholder.com/50?text=BCP",
           }));
         }
       } catch (error) {
-        console.error("Error obteniendo deudas BCP:", error.message);
+        const status = error.response ? error.response.status : 'Unknown';
+        console.error(`[ServicesService] Error obteniendo deudas BCP (Status: ${status}):`, error.message);
       }
     }
     return [...bcpDebts];

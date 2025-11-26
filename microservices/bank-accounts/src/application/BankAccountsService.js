@@ -1,17 +1,22 @@
 const axios = require("axios");
+
 class BankAccountsService {
   constructor(bankAccountsRepository) {
     this.bankAccountsRepository = bankAccountsRepository;
-    this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    this.bcpAuthUrl = (
-      process.env.BCP_API_URL || "http://localhost:8080/api/s2s"
-    ).replace("/api/s2s", "/auth/generar-token-servicio");
+    
+    const bcpFullUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
+    const urlObj = new URL(bcpFullUrl);
+    this.bcpBaseUrl = urlObj.origin;
+
+    this.bcpAuthUrl = `${this.bcpBaseUrl}/auth/generar-token-servicio`;
+    this.bcpCuentasUrl = `${this.bcpBaseUrl}/api/s2s/cuentas`;
 
     this.serviceTokenCache = {
       token: null,
       isFetching: false,
     };
   }
+
   async getValidServiceToken() {
     if (this.serviceTokenCache.token) {
       return this.serviceTokenCache.token;
@@ -26,11 +31,14 @@ class BankAccountsService {
     }
     try {
       this.serviceTokenCache.isFetching = true;
-      console.log("[BankAccountsService] Solicitando token S2S a BCP...");
+      console.log(`[BankAccountsService] Solicitando token S2S a BCP: ${this.bcpAuthUrl}`);
+      
       const response = await axios.get(this.bcpAuthUrl, { timeout: 5000 });
-      const newToken = response.data?.token;
+      
+      const newToken = response.data?.data?.token || response.data?.token;
+      
       if (!newToken) {
-        throw new Error("BCP no devolvió un token S2S.");
+        throw new Error("BCP no devolvió un token S2S válido.");
       }
       this.serviceTokenCache.token = newToken;
       return newToken;
@@ -45,6 +53,32 @@ class BankAccountsService {
       this.serviceTokenCache.isFetching = false;
     }
   }
+
+  async sendBcpRequestWithRetry(axiosConfig) {
+    try {
+      const token = await this.getValidServiceToken();
+      axiosConfig.headers = {
+        ...axiosConfig.headers,
+        Authorization: `Bearer ${token}`,
+      };
+      console.log(
+        `[BankAccountsService] Enviando petición S2S a BCP: ${axiosConfig.url}`
+      );
+      return await axios(axiosConfig);
+    } catch (error) {
+      if (error.response && error.response.status === 401) {
+        console.warn(
+          "[BankAccountsService] Petición S2S falló con 401. Reintentando..."
+        );
+        this.serviceTokenCache.token = null; 
+        const newToken = await this.refreshServiceToken();
+        axiosConfig.headers.Authorization = `Bearer ${newToken}`;
+        return await axios(axiosConfig);
+      }
+      throw error;
+    }
+  }
+
   async realizarDebitoInterno(clienteId, cuentaId, montoADebitar) {
     if (montoADebitar <= 0) {
       throw new Error("El monto a debitar debe ser positivo.");
@@ -88,34 +122,11 @@ class BankAccountsService {
     };
   }
 
-  async sendBcpRequestWithRetry(axiosConfig) {
-    try {
-      const token = await this.getValidServiceToken();
-      axiosConfig.headers = {
-        ...axiosConfig.headers,
-        Authorization: `Bearer ${token}`,
-      };
-      console.log(
-        `[BankAccountsService] Enviando petición S2S a BCP: ${axiosConfig.url}`
-      );
-      return await axios(axiosConfig);
-    } catch (error) {
-      if (error.response && error.response.status === 401) {
-        console.warn(
-          "[BankAccountsService] Petición S2S falló con 401. Reintentando..."
-        );
-        const newToken = await this.refreshServiceToken();
-        axiosConfig.headers.Authorization = `Bearer ${newToken}`;
-        return await axios(axiosConfig);
-      }
-      throw error;
-    }
-  }
   async getMyUnifiedAccounts(userTokenData) {
-    const { userId, dni, userType } = userTokenData;
+    const { userId, dni } = userTokenData;
 
-    if (!userId || !userType) {
-      throw new Error("Token inválido, no se encontró userId o userType.");
+    if (!userId) {
+      throw new Error("Token inválido, no se encontró userId.");
     }
 
     const localAccountsPromise = this.bankAccountsRepository
@@ -132,23 +143,24 @@ class BankAccountsService {
       });
 
     let bcpAccountsPromise = Promise.resolve([]);
-
-    if (userType === "BCP") {
-      if (!dni) throw new Error("Usuario BCP sin DNI en el token.");
-
+    if (dni) {
       console.log(
-        `[BankAccountsService] Es usuario BCP, consultando cuentas S2S para DNI...`
+        `[BankAccountsService] Usuario con DNI ${dni} detectado. Consultando BCP...`
       );
       const config = {
         method: "get",
-        url: `${this.bcpApiUrl}/cuentas/cliente/${dni}`,
+        url: `${this.bcpCuentasUrl}/cliente/${dni}`,
         timeout: 5000,
       };
 
       bcpAccountsPromise = this.sendBcpRequestWithRetry(config)
-        .then((response) =>
-          response.data.map((acc) => ({ ...acc, origen: "BCP" }))
-        )
+        .then((response) => {
+            const cuentas = response.data.data || response.data;
+            if(Array.isArray(cuentas)){
+                return cuentas.map((acc) => ({ ...acc, origen: "BCP" }));
+            }
+            return [];
+        })
         .catch((err) => {
           console.error("Error al buscar cuentas S2S de BCP:", err.message);
           return [];
@@ -162,44 +174,55 @@ class BankAccountsService {
 
     return [...localAccounts, ...bcpAccounts];
   }
-  async recargarMonedero(req, res) {
-    const { userId, clienteId, dni } = userTokenData;
+
+  async recargarMonedero(userTokenData, cuentaOrigenId, monto) {
+    const { clienteId, dni } = userTokenData;
+    
     if (monto <= 0) throw new Error("El monto debe ser mayor a 0.");
+    
     const monedero = await this.bankAccountsRepository.findMonederoByClienteId(
       clienteId
     );
+    
     if (!monedero) {
       throw new Error(
         "No se encontró un Monedero Payflow activo para este usuario."
       );
     }
+    
     let cuentaOrigen = null;
     try {
       cuentaOrigen = await this.bankAccountsRepository.findCuentaBancariaById(
         cuentaOrigenId
       );
     } catch (error) {}
+
     if (cuentaOrigen && cuentaOrigen.id === monedero.id) {
       throw new Error(
         "No puedes recargar el monedero usando el mismo monedero."
       );
     }
     const origenEsBCP = cuentaOrigen ? cuentaOrigen.banco === "BCP" : true;
+
     if (origenEsBCP) {
       if (!dni) throw new Error("Se requiere DNI para operar con BCP.");
+      
+      const numeroCuentaOrigen = cuentaOrigen ? cuentaOrigen.numeroCuenta : cuentaOrigenId;
+      
       const debitoRequest = {
         dniCliente: dni,
-        numeroCuentaOrigen: cuentaOrigen
-          ? cuentaOrigen.numeroCuenta
-          : cuentaOrigenId,
+        numeroCuentaOrigen: numeroCuentaOrigen, 
         monto: monto,
         descripcionCompra: "Recarga Payflow Wallet",
+        idPagoBCP: 0,
+        idServicioPayflow: "WALLET-RECHARGE"
       };
+
       console.log(`[BankAccountsService] Iniciando débito BCP para recarga...`);
       try {
         await this.sendBcpRequestWithRetry({
           method: "post",
-          url: `${this.bcpApiUrl}/debito/ejecutar`,
+          url: `${this.bcpBaseUrl}/api/s2s/debito/ejecutar`, 
           data: debitoRequest,
         });
       } catch (error) {
@@ -221,10 +244,12 @@ class BankAccountsService {
         cuentaOrigen.saldo - monto
       );
     }
+    
     await this.bankAccountsRepository.incrementarSaldo(monedero.id, monto);
+    
     return {
       mensaje: "Recarga exitosa",
-      nuevoSaldo: monedero.saldo + monto,
+      nuevoSaldo: parseFloat(monedero.saldo) + parseFloat(monto),
       monederoId: monedero.id,
     };
   }
