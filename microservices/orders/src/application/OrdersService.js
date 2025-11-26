@@ -15,7 +15,7 @@ class OrdersService {
 
     // Token de PRUEBA (Sandbox)
     this.mpClient = new MercadoPagoConfig({ 
-        accessToken: process.env.MP_ACCESS_TOKEN 
+        accessToken: process.env.ACCESS_TOKEN
     });
   }
 

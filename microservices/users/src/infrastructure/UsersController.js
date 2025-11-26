@@ -5,10 +5,13 @@ class UsersController {
   async syncBcpUser(req, res) {
     try {
       const bcpUserPayload = req.user;
-      
-      const payflowCliente = await this.usersService.findOrCreateClienteFromBcp(bcpUserPayload);
-      
-      res.status(200).json(payflowCliente.toJSON(),isNewUser);
+      const { cliente, isNewUser } =
+        await this.usersService.findOrCreateClienteFromBcp(bcpUserPayload);
+
+      res.status(200).json({
+        cliente: cliente.toJSON(),
+        isNewUser: isNewUser,
+      });
     } catch (error) {
       res.status(400).json({ error: error.message });
     }
@@ -18,7 +21,7 @@ class UsersController {
       const { usuario_id } = req.body;
 
       if (!usuario_id) {
-        return res.status(400).json({ error: 'usuario_id es requerido' });
+        return res.status(400).json({ error: "usuario_id es requerido" });
       }
 
       const cliente = await this.usersService.createCliente({
@@ -38,7 +41,7 @@ class UsersController {
       const cliente = await this.usersService.getClienteByUsuarioId(usuarioId);
 
       if (!cliente) {
-        return res.status(404).json({ error: 'Cliente no encontrado' });
+        return res.status(404).json({ error: "Cliente no encontrado" });
       }
 
       res.status(200).json(cliente.toJSON());
@@ -52,7 +55,10 @@ class UsersController {
       const { clienteId } = req.params;
       const updateData = req.body;
 
-      const cliente = await this.usersService.updateCliente(clienteId, updateData);
+      const cliente = await this.usersService.updateCliente(
+        clienteId,
+        updateData
+      );
 
       res.status(200).json(cliente.toJSON());
     } catch (error) {
@@ -64,7 +70,7 @@ class UsersController {
     try {
       const clientes = await this.usersService.getAllClientes();
 
-      res.status(200).json(clientes.map(c => c.toJSON()));
+      res.status(200).json(clientes.map((c) => c.toJSON()));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -75,12 +81,14 @@ class UsersController {
       const { usuario_id, nivel_acceso } = req.body;
 
       if (!usuario_id || !nivel_acceso) {
-        return res.status(400).json({ error: 'usuario_id y nivel_acceso son requeridos' });
+        return res
+          .status(400)
+          .json({ error: "usuario_id y nivel_acceso son requeridos" });
       }
 
       const admin = await this.usersService.createAdministrador({
         usuario_id,
-        nivel_acceso
+        nivel_acceso,
       });
 
       res.status(201).json(admin.toJSON());
@@ -93,10 +101,12 @@ class UsersController {
     try {
       const { usuarioId } = req.params;
 
-      const admin = await this.usersService.getAdministradorByUsuarioId(usuarioId);
+      const admin = await this.usersService.getAdministradorByUsuarioId(
+        usuarioId
+      );
 
       if (!admin) {
-        return res.status(404).json({ error: 'Administrador no encontrado' });
+        return res.status(404).json({ error: "Administrador no encontrado" });
       }
 
       res.status(200).json(admin.toJSON());
@@ -109,24 +119,26 @@ class UsersController {
     try {
       const admins = await this.usersService.getAllAdministradores();
 
-      res.status(200).json(admins.map(a => a.toJSON()));
+      res.status(200).json(admins.map((a) => a.toJSON()));
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
   }
   async updateProfile(req, res) {
     try {
-      const { userId, userType } = req.user; 
+      const { userId, userType } = req.user;
       const updateData = req.body;
 
       if (!userId) {
-         return res.status(401).json({ error: "Usuario no identificado en el token" });
+        return res
+          .status(401)
+          .json({ error: "Usuario no identificado en el token" });
       }
 
       const clientData = {
         ...updateData,
         usuarioId: userId,
-        userType: userType
+        userType: userType,
       };
 
       const updatedUser = await this.usersService.updateUserProfile(clientData);

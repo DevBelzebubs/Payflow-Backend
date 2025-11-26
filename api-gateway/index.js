@@ -21,7 +21,6 @@ try {
   app.use(cors());
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
-
   const AUTH_SERVICE_URL =
     process.env.AUTH_SERVICE_URL || "http://localhost:3001";
   const USERS_SERVICE_URL =
@@ -287,7 +286,21 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
-
+  app.get("/api/servicios/mis-deudas", authMiddleware, async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        SERVICES_SERVICE_URL,
+        "/api/servicios/mis-deudas",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/servicios/mis-deudas:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
   app.get("/api/servicios", async (req, res) => {
     try {
       const queryString = new URLSearchParams(req.query).toString();

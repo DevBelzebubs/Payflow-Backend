@@ -107,7 +107,7 @@ class AuthService {
       throw new Error("Credenciales inválidas (BCP)");
     }
 
-    const bcpToken = bcpAuthResponse.data?.token;
+    const bcpToken = bcpAuthResponse.data?.data?.token;
     if (!bcpToken) {
       throw new Error("BCP no devolvió un token");
     }

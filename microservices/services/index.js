@@ -1,7 +1,6 @@
 require('../../database/sqlServerConfig');
 const express = require('express');
 const cors = require('cors');
-
 const app = express();
 const PORT = process.env.SERVICES_PORT || 3004;
 
@@ -11,6 +10,7 @@ app.use(express.json());
 const SqlServerServicesRepository = require('./src/infrastructure/SqlServerServicesRepository');
 const ServicesService = require('./src/application/ServicesService');
 const ServicesController = require('./src/infrastructure/ServicesController');
+const authMiddleware = require('./src/infrastructure/authMiddleware');
 
 const servicesRepository = new SqlServerServicesRepository();
 const servicesService = new ServicesService(servicesRepository);
@@ -18,6 +18,7 @@ const servicesController = new ServicesController(servicesService);
 
 app.post('/api/servicios', (req, res) => servicesController.createServicio(req, res));
 app.get('/api/servicios/externos/pendientes', (req,res) => servicesController.getServiciosExternos(req,res));
+app.get('/api/servicios/mis-deudas', authMiddleware, (req, res) => servicesController.getMisDeudas(req, res));
 app.get('/api/servicios/:idServicio', (req, res) => servicesController.getServicio(req, res));
 app.get('/api/servicios/:idServicio/butacas', (req, res) => servicesController.getButacas(req, res));
 app.get('/api/servicios', (req, res) => servicesController.getAllServicios(req, res));

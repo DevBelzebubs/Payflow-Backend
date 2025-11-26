@@ -46,7 +46,10 @@ class ServicesController {
   async getButacas(req, res) {
     try {
       const { idServicio } = req.params;
-      const butacas = await this.servicesService.servicesRepository.findOccupiedSeats(idServicio);
+      const butacas =
+        await this.servicesService.servicesRepository.findOccupiedSeats(
+          idServicio
+        );
       res.status(200).json(butacas);
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -140,6 +143,17 @@ class ServicesController {
       const { idServicio } = req.params;
       const tipos = await this.servicesService.getTicketTypes(idServicio);
       res.status(200).json(tipos);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+  async getMisDeudas(req, res) {
+    try {
+      const userData = req.user;
+      const deudas = await this.servicesService.getMisDeudasPendientes(
+        userData
+      );
+      res.json(deudas);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
