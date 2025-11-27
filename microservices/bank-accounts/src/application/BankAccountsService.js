@@ -5,7 +5,7 @@ class BankAccountsService {
     this.bankAccountsRepository = bankAccountsRepository;
     
     const bcpFullUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    const urlObj = new URL(bcpFullUrl);
+    const urlObj = new URL(bcpFullUrl); 
     this.bcpBaseUrl = urlObj.origin;
 
     this.bcpAuthUrl = `${this.bcpBaseUrl}/auth/generar-token-servicio`;
