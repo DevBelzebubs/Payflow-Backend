@@ -16,7 +16,10 @@ class ProductsService {
   }
 
   async updateProducto(productoId, productoData) {
-    return await this.productsRepository.updateProducto(productoId, productoData);
+    return await this.productsRepository.updateProducto(
+      productoId,
+      productoData
+    );
   }
 
   async deleteProducto(productoId) {
@@ -27,16 +30,21 @@ class ProductsService {
     const producto = await this.productsRepository.findProductoById(productoId);
 
     if (!producto) {
-      throw new Error('Producto no encontrado');
+      throw new Error("Producto no encontrado");
     }
 
     const nuevoStock = producto.stock + cantidad;
 
     if (nuevoStock < 0) {
-      throw new Error('Stock insuficiente');
+      throw new Error("Stock insuficiente");
     }
 
-    return await this.productsRepository.updateProducto(productoId, { stock: nuevoStock });
+    return await this.productsRepository.updateProducto(productoId, {
+      stock: nuevoStock,
+    });
+  }
+  async addProductImages(productoId, urlList) {
+    return await this.productsRepository.addProductImages(productoId, urlList);
   }
 }
 

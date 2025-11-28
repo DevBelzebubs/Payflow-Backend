@@ -1,18 +1,55 @@
+const cloudinary = require('./cloudinaryConfig'); 
+async function uploadFile(file, folder) {
+    if (!file || !file.tempFilePath) return null;
+    try {
+        const result = await cloudinary.v2.uploader.upload(file.tempFilePath, {
+            folder: `payflow/gasfiteria/${folder}`,
+            resource_type: "auto",
+        });
+        return result.secure_url;
+    } catch (uploadError) {
+        console.error(`[Cloudinary Upload Error] Carpeta: ${folder}`, uploadError);
+        throw new Error(`Fallo en la subida de la imagen de ${folder}. Detalle: ${uploadError.message}`);
+    }
+}
+
 class ProductsController {
   constructor(productsService) {
     this.productsService = productsService;
   }
-
+  
+  
   async createProducto(req, res) {
     try {
-      // --- AJUSTE: Extraer los nuevos campos del body ---
       const { 
-        nombre, descripcion, precio, stock, categoria, imagen_url, 
+        nombre, descripcion, precio, stock, categoria, 
         marca, especificaciones 
       } = req.body;
 
       if (!nombre || !precio) {
         return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+      }
+
+      const files = req.files || {};
+      const imagenPortadaFile = files.imagenPortada; 
+      const imagenesGaleriaFiles = files.imagenesGaleria; 
+
+      let imagen_url = null;
+      let galleryUrls = [];
+      
+      if (imagenPortadaFile) {
+          imagen_url = await uploadFile(imagenPortadaFile, "portadas"); 
+      }
+      
+      const filesToProcess = Array.isArray(imagenesGaleriaFiles) 
+          ? imagenesGaleriaFiles 
+          : (imagenesGaleriaFiles ? [imagenesGaleriaFiles] : []);
+
+      for (const file of filesToProcess) {
+          const url = await uploadFile(file, "galeria");
+          if (url) {
+             galleryUrls.push(url);
+          }
       }
 
       const producto = await this.productsService.createProducto({
@@ -27,9 +64,18 @@ class ProductsController {
         especificaciones 
       });
 
+      if (galleryUrls.length > 0) {
+          await this.productsService.addProductImages(producto.id, galleryUrls);
+      }
+
       res.status(201).json(producto.toJSON());
     } catch (error) {
-      res.status(400).json({ error: error.message });
+      const errorMessage = error.message.includes("Fallo en la subida de la imagen") 
+          ? error.message 
+          : error.message || "Error al crear el producto. Revise los logs del servidor.";
+
+      console.error("[ProductsController] Error en createProducto:", error);
+      res.status(400).json({ error: errorMessage });
     }
   }
 

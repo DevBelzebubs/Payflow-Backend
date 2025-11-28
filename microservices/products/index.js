@@ -5,12 +5,14 @@ const cors = require('cors');
 const SqlServerProductsRepository = require('./src/infrastructure/SqlServerProductsRepository');
 const ProductsService = require('./src/application/ProductsService');
 const ProductsController = require('./src/infrastructure/ProductsController');
+const fileUpload = require('express-fileupload');
 
 const app = express();
 const PORT = process.env.PRODUCTS_PORT || 3003;
 
 app.use(cors());
 app.use(express.json());
+app.use(fileUpload({ createParentPath: true,tempFileDir: '/tmp/' }));
 
 const productsRepository = new SqlServerProductsRepository();
 const productsService = new ProductsService(productsRepository);

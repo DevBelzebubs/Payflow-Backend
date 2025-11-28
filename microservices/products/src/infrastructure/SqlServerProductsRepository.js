@@ -179,6 +179,31 @@ class SqlServerProductsRepository {
       throw new Error(`Error eliminando producto: ${error.message}`);
     }
   }
+  async addProductImages(productoId, urlList) {
+    try {
+        const pool = await getPool();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        
+        let orden = 0;
+        for (const url of urlList) {
+            const request = new sql.Request(transaction);
+            await request
+                .input('producto_id', sql.UniqueIdentifier, productoId)
+                .input('url_imagen', sql.NVarChar, url)
+                .input('orden', sql.Int, orden++)
+                .query(`
+                    INSERT INTO producto_imagenes (id, producto_id, url_imagen, orden)
+                    VALUES (NEWID(), @producto_id, @url_imagen, @orden)
+                `);
+        }
+        await transaction.commit();
+        return true;
+    } catch (error) {
+        await transaction.rollback();
+        throw new Error(`Error insertando imágenes de galería: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SqlServerProductsRepository;
