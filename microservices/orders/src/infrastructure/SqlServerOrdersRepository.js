@@ -248,6 +248,66 @@ class SqlServerOrdersRepository {
       throw error;
     }
   }
+  async createSuscripcion(data) {
+    try {
+      const pool = await getPool();
+      const proximoPago = new Date();
+      proximoPago.setMonth(proximoPago.getMonth() + 1);
+
+      await pool.request()
+        .input('cliente_id', sql.UniqueIdentifier, data.clienteId)
+        .input('servicio_id', sql.UniqueIdentifier, data.servicioId)
+        .input('precio', sql.Decimal(10, 2), data.precio)
+        .input('cuenta_origen', sql.UniqueIdentifier, data.cuentaId || null)
+        .input('prox_pago', sql.DateTime2, proximoPago)
+        .query(`
+          INSERT INTO suscripciones_cliente 
+          (cliente_id, servicio_id, precio_acordado, cuenta_origen_id, fecha_proximo_pago)
+          VALUES (@cliente_id, @servicio_id, @precio, @cuenta_origen, @prox_pago)
+        `);
+      return true;
+    } catch (error) {
+      console.error("Error creando registro de suscripción:", error);
+      return false;
+    }
+  }
+
+  async findSuscripcionesParaRenovar() {
+    try {
+      const pool = await getPool();
+      const result = await pool.request()
+        .query(`
+          SELECT s.*, ser.nombre as nombre_servicio 
+          FROM suscripciones_cliente s
+          INNER JOIN servicios ser ON s.servicio_id = ser.id
+          WHERE s.estado = 'ACTIVA' 
+          AND s.fecha_proximo_pago <= GETDATE()
+        `);
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Error buscando renovaciones: ${error.message}`);
+    }
+  }
+
+  async updateProximoPagoSuscripcion(suscripcionId) {
+    try {
+      const pool = await getPool();
+      const nuevoPago = new Date();
+      nuevoPago.setMonth(nuevoPago.getMonth() + 1);
+
+      await pool.request()
+        .input('id', sql.UniqueIdentifier, suscripcionId)
+        .input('nuevo_pago', sql.DateTime2, nuevoPago)
+        .query(`
+          UPDATE suscripciones_cliente 
+          SET fecha_ultimo_pago = GETDATE(), 
+              fecha_proximo_pago = @nuevo_pago
+          WHERE id = @id
+        `);
+    } catch (error) {
+      throw new Error(`Error actualizando suscripción: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SqlServerOrdersRepository;
