@@ -17,6 +17,7 @@ const ordersService = new OrdersService(ordersRepository);
 const ordersController = new OrdersController(ordersService);
 
 app.post('/api/ordenes', authMiddleware, (req, res) => ordersController.createOrden(req, res));
+app.post('/api/ordenes/renovar-suscripciones', (req, res) => ordersController.procesarRenovaciones(req, res));
 app.post('/api/ordenes/webhook', (req, res) => ordersController.receiveWebhook(req, res));
 app.get('/api/ordenes/:ordenId', (req, res) => ordersController.getOrden(req, res));
 app.get('/api/ordenes/cliente/:clienteId', (req, res) => ordersController.getOrdenesByCliente(req, res));

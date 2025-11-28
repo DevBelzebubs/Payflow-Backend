@@ -12,43 +12,72 @@ class OrdersController {
         datosPago.userToken = authToken;
       }
       if (!clienteId || !items || items.length === 0 || !datosPago) {
-        return res.status(400).json({ error: 'clienteId, items y datosPago son requeridos' });
+        return res
+          .status(400)
+          .json({ error: "clienteId, items y datosPago son requeridos" });
       }
       const mainItem = items[0];
       const esProducto = !!mainItem.productoId;
       const esServicio = !!mainItem.servicioId;
-      if (datosPago.origen === 'BCP') {
+      if (datosPago.origen === "BCP") {
         datosPago.dniCliente = bcpUser.dni;
 
         if (esProducto) {
           if (!datosPago.numeroCuentaOrigen) {
-            return res.status(400).json({ error: "El pago de productos con BCP requiere 'numeroCuentaOrigen'." });
+            return res
+              .status(400)
+              .json({
+                error:
+                  "El pago de productos con BCP requiere 'numeroCuentaOrigen'.",
+              });
           }
         } else if (esServicio) {
-          if (!datosPago.numeroCuentaOrigen || !datosPago.idPagoBCP || !datosPago.monto) {
-            return res.status(400).json({ error: "El pago de servicios BCP requiere 'numeroCuentaOrigen', 'idPagoBCP' y 'monto'." });
+          if (
+            !datosPago.numeroCuentaOrigen ||
+            !datosPago.idPagoBCP ||
+            !datosPago.monto
+          ) {
+            return res
+              .status(400)
+              .json({
+                error:
+                  "El pago de servicios BCP requiere 'numeroCuentaOrigen', 'idPagoBCP' y 'monto'.",
+              });
           }
         } else {
-            return res.status(400).json({ error: "El item de la orden debe tener 'productoId' o 'servicioId'." });
+          return res
+            .status(400)
+            .json({
+              error:
+                "El item de la orden debe tener 'productoId' o 'servicioId'.",
+            });
         }
-
-      } else if (datosPago.origen === 'MERCADOPAGO') {
+      } else if (datosPago.origen === "MERCADOPAGO") {
         //Acá no va nd xd
-      } else if (datosPago.origen === 'PAYFLOW'){
+      } else if (datosPago.origen === "PAYFLOW") {
         if (!datosPago.cuentaId) {
-            return res.status(400).json({ error: "El pago con 'PAYFLOW' requiere 'cuentaId'." });
-         }
+          return res
+            .status(400)
+            .json({ error: "El pago con 'PAYFLOW' requiere 'cuentaId'." });
+        }
       } else {
-         return res.status(400).json({ error: "El 'origen' de datosPago debe ser 'BCP', 'PAYFLOW' o 'MERCADOPAGO'" });
+        return res
+          .status(400)
+          .json({
+            error:
+              "El 'origen' de datosPago debe ser 'BCP', 'PAYFLOW' o 'MERCADOPAGO'",
+          });
       }
-      const resultado = await this.ordersService.createOrden({
-        clienteId,
-        items,
-        notas
-      }, datosPago);
+      const resultado = await this.ordersService.createOrden(
+        {
+          clienteId,
+          items,
+          notas,
+        },
+        datosPago
+      );
 
       res.status(201).json(resultado);
-      
     } catch (error) {
       const errorMessage = error.response
         ? error.response.data.error
@@ -127,11 +156,9 @@ class OrdersController {
     try {
       const dni = req.user?.dni;
       if (!dni) {
-        return res
-          .status(400)
-          .json({
-            error: "No se pudo encontrar el DNI del usuario en el token.",
-          });
+        return res.status(400).json({
+          error: "No se pudo encontrar el DNI del usuario en el token.",
+        });
       }
       const cuentas = await this.ordersService.getCuentasByDni(dni);
       res.status(200).json(cuentas);
@@ -139,19 +166,17 @@ class OrdersController {
       const errorMessage = error.response
         ? error.response.data.error
         : error.message;
-      res
-        .status(400)
-        .json({
-          error: errorMessage || "Error al consultar las cuentas de BCP.",
-        });
+      res.status(400).json({
+        error: errorMessage || "Error al consultar las cuentas de BCP.",
+      });
     }
   }
   async receiveWebhook(req, res) {
     try {
       const { type, topic } = req.query;
-      const id = req.query.id || req.query['data.id'];
+      const id = req.query.id || req.query["data.id"];
 
-      if (id && (type === 'payment' || topic === 'payment')) {
+      if (id && (type === "payment" || topic === "payment")) {
         console.log(`[Webhook] Notificación de pago recibida. ID: ${id}`);
         await this.ordersService.procesarWebhookMercadoPago(id);
       }
@@ -161,6 +186,16 @@ class OrdersController {
       res.sendStatus(500);
     }
   }
-  
+  async procesarRenovaciones(req, res) {
+    try {
+      const resultado = await this.ordersService.procesarRenovaciones();
+      res.status(200).json({
+        message: "Proceso de renovación finalizado",
+        detalle: resultado,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
 }
 module.exports = OrdersController;

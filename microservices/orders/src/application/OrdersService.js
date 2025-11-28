@@ -1,22 +1,28 @@
 const axios = require("axios");
-const { MercadoPagoConfig, Preference, Payment } = require('mercadopago');
+const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
 
 class OrdersService {
   constructor(ordersRepository) {
     this.ordersRepository = ordersRepository;
-    this.productsServiceUrl = process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
-    this.servicesServiceUrl = process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
-    this.bankAccountsServiceUrl = process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
+    this.productsServiceUrl =
+      process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
+    this.servicesServiceUrl =
+      process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
+    this.bankAccountsServiceUrl =
+      process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
     this.bcpApiUrl = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    
+
     const bcpBase = process.env.BCP_API_URL || "http://localhost:8080/api/s2s";
-    this.bcpAuthUrl = bcpBase.replace("/api/s2s", "/auth/generar-token-servicio");
+    this.bcpAuthUrl = bcpBase.replace(
+      "/api/s2s",
+      "/auth/generar-token-servicio"
+    );
 
     this.serviceTokenCache = { token: null, isFetching: false };
     this.PAYFLOW_MASTER_ACCOUNT_BCP = "CUENTA-MAESTRA-PAYFLOW-001";
 
-    this.mpClient = new MercadoPagoConfig({ 
-        accessToken: process.env.ACCESS_TOKEN || 'TEST-TOKEN-GENERICO'
+    this.mpClient = new MercadoPagoConfig({
+      accessToken: process.env.ACCESS_TOKEN || "TEST-TOKEN-GENERICO",
     });
   }
 
@@ -37,7 +43,9 @@ class OrdersService {
       return this.serviceTokenCache.token;
     } catch (e) {
       this.serviceTokenCache.token = null;
-      console.warn(`[OrdersService] Advertencia: No se pudo obtener token BCP: ${e.message}`);
+      console.warn(
+        `[OrdersService] Advertencia: No se pudo obtener token BCP: ${e.message}`
+      );
       return null;
     } finally {
       this.serviceTokenCache.isFetching = false;
@@ -47,7 +55,10 @@ class OrdersService {
   async sendBcpRequestWithRetry(axiosConfig) {
     try {
       const token = await this.getValidServiceToken();
-      axiosConfig.headers = { ...axiosConfig.headers, Authorization: `Bearer ${token}` };
+      axiosConfig.headers = {
+        ...axiosConfig.headers,
+        Authorization: `Bearer ${token}`,
+      };
       return await axios(axiosConfig);
     } catch (error) {
       if (error.response?.status === 401) {
@@ -243,53 +254,125 @@ class OrdersService {
     try {
       const payment = new Payment(this.mpClient);
       const paymentData = await payment.get({ id: paymentId });
-      
+
       const { status, external_reference } = paymentData;
 
-      if (status === 'approved' && external_reference) {
-          console.log(`[OrdersService] Pago ${paymentId} APROBADO. Orden vinculada: ${external_reference}`);
-          
-          const orden = await this.ordersRepository.findOrdenById(external_reference);
-          
-          if (orden && orden.estado !== 'confirmada') {
-              await this.ordersRepository.updateOrden(external_reference, {
-                  estado: 'confirmada',
-                  notas: `Pago confirmado por Mercado Pago. ID: ${paymentId}`
-              });              
-              if (orden.items && orden.items.length > 0) {
-                  for (const item of orden.items) {
-                      if (item.producto_id) {
-                          try {
-                              await axios.patch(`${this.productsServiceUrl}/api/productos/${item.producto_id}/stock`, {
-                                  cantidad: -item.cantidad
-                              });
-                          } catch (e) { console.error("Error descontando stock en webhook:", e.message); }
-                      }
-                  }
+      if (status === "approved" && external_reference) {
+        console.log(
+          `[OrdersService] Pago ${paymentId} APROBADO. Orden vinculada: ${external_reference}`
+        );
+
+        const orden = await this.ordersRepository.findOrdenById(
+          external_reference
+        );
+
+        if (orden && orden.estado !== "confirmada") {
+          await this.ordersRepository.updateOrden(external_reference, {
+            estado: "confirmada",
+            notas: `Pago confirmado por Mercado Pago. ID: ${paymentId}`,
+          });
+          if (orden.items && orden.items.length > 0) {
+            for (const item of orden.items) {
+              if (item.producto_id) {
+                try {
+                  await axios.patch(
+                    `${this.productsServiceUrl}/api/productos/${item.producto_id}/stock`,
+                    {
+                      cantidad: -item.cantidad,
+                    }
+                  );
+                } catch (e) {
+                  console.error(
+                    "Error descontando stock en webhook:",
+                    e.message
+                  );
+                }
               }
-              console.log(`[OrdersService] Orden ${external_reference} CONFIRMADA.`);
+            }
           }
+          console.log(
+            `[OrdersService] Orden ${external_reference} CONFIRMADA.`
+          );
+        }
       }
     } catch (error) {
-      console.error(`[OrdersService] Error verificando pago ${paymentId}:`, error.message);
-      throw error; 
+      console.error(
+        `[OrdersService] Error verificando pago ${paymentId}:`,
+        error.message
+      );
+      throw error;
     }
   }
 
-  async liquidarDeudaEnBcp(pagoId){
+  async liquidarDeudaEnBcp(pagoId) {
     try {
-      const payload = { cuentaId: this.PAYFLOW_MASTER_ACCOUNT_BCP, PagoId: pagoId };
+      const payload = {
+        cuentaId: this.PAYFLOW_MASTER_ACCOUNT_BCP,
+        PagoId: pagoId,
+      };
       await axios.post(`${this.bcpApiUrl}/pagos/realizar`, payload);
     } catch (error) {
       throw new Error(`Error liquidando BCP: ${error.message}`);
     }
   }
 
-  async getOrdenById(id) { return await this.ordersRepository.findOrdenById(id); }
-  async getOrdenesByCliente(id) { return await this.ordersRepository.findOrdenesByCliente(id); }
-  async getAllOrdenes() { return await this.ordersRepository.findAllOrdenes(); }
-  async getCuentasByDni(dni) { 
-      return []; 
+  async getOrdenById(id) {
+    return await this.ordersRepository.findOrdenById(id);
+  }
+  async getOrdenesByCliente(id) {
+    return await this.ordersRepository.findOrdenesByCliente(id);
+  }
+  async getAllOrdenes() {
+    return await this.ordersRepository.findAllOrdenes();
+  }
+  async getCuentasByDni(dni) {
+    return [];
+  }
+  async procesarRenovaciones() {
+    const suscripcionesVencidas =
+      await this.ordersRepository.findSuscripcionesParaRenovar();
+    const resultados = { exitosos: 0, fallidos: 0 };
+    for (const sub of suscripcionesVencidas) {
+      try {
+        if (!sub.cuena_origen_id) {
+          resultados.fallidos++;
+          continue;
+        }
+        await axios.post(
+          `${this.bankAccountsServiceUrl}/api/cuentas-bancarias/debitar`,
+          {
+            cuentaId: sub.cuenta_origen_id,
+            monto: sub.precio_acordado,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${await this.getValidServiceToken()}`,
+            },
+          }
+        );
+        const nuevaOrden = await this.ordersRepository.createOrden({
+          cliente_id: sub.cliente_id,
+          total:sub.precio_acordado,
+          subtotal:sub.precio_acordado /1.18,
+          impuestos:sub.precio_acordado - (sub.precio_acordado / 1.18),
+          estado: 'COMPLETADA',
+          notas: `Renovación automática: ${sub.nombre_servicio}`
+        });
+        await this.ordersRepository.createItemOrden({
+          orden_id: nuevaOrden.id,
+          servicio_id: sub.servicio_id,
+          cantidad: 1,
+          precio_unitario : sub.precio_acordado,
+          subtotal: sub.precio_acordado
+        });
+        await this.ordersRepository.updateProximoPagoSuscripcion(sub.id);
+        resultados.exitosos++;
+      } catch (error) {
+        console.error(`[Renovación] Fallo al renovar suscripción ${sub.id}:`, error.message);
+        resultados.fallidos++;
+      }
+    }
+    return resultados;
   }
 }
 
