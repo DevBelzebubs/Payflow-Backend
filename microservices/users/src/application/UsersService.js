@@ -1,14 +1,15 @@
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
-const { getPool, sql } = require('../../../../database/sqlServerConfig');
+const { getPool, sql } = require("../../../../database/sqlServerConfig");
+const { resolveService }= require("../../../../utils/ConsulResolver")
+
 class UsersService {
   constructor(usersRepository, authRepository) {
     this.usersRepository = usersRepository;
     this.authRepository = authRepository;
-    this.BANK_ACCOUNTS_SERVICE_URL =
-      process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
   }
   async findOrCreateClienteFromBcp(bcpUserData) {
+    const bankAccountBaseUrl = await resolveService("bank-accounts-service");
     const { email, dni, bcpUsuarioId, nombreCompleto, telefono } = bcpUserData;
 
     if (!email) {
@@ -61,7 +62,7 @@ class UsersService {
           activo: true,
         };
         await axios.post(
-          `${this.BANK_ACCOUNTS_SERVICE_URL}/api/cuentas-bancarias`,
+          `${bankAccountBaseUrl}/api/cuentas-bancarias`,
           walletData
         );
         console.log("Monedero creado");
@@ -77,6 +78,7 @@ class UsersService {
     return { cliente: payflowCliente, isNewUser };
   }
   async createCliente(clienteData) {
+    const bankAccountBaseUrl = await resolveService("bank-accounts-service");
     const payflowCliente = await this.usersRepository.createCliente(
       clienteData
     );
@@ -90,7 +92,7 @@ class UsersService {
         activo: true,
       };
       await axios.post(
-        `${this.BANK_ACCOUNTS_SERVICE_URL}/api/cuentas-bancarias`,
+        `${bankAccountBaseUrl}/api/cuentas-bancarias`,
         walletData
       );
     } catch (walletError) {
@@ -107,47 +109,60 @@ class UsersService {
   }
   async updateUserProfile(clientData) {
     const { usuarioId } = clientData;
-    
+
     if (!usuarioId) {
-        throw new Error("usuarioId es requerido para actualizar el perfil");
+      throw new Error("usuarioId es requerido para actualizar el perfil");
     }
 
     const payflowUser = await this.authRepository.findUserById(usuarioId);
-    
+
     if (!payflowUser) {
       throw new Error(`Usuario no encontrado (ID: ${usuarioId})`);
     }
 
     const dataToUpdate = {};
-    const esUsuarioBCP = payflowUser.passwordHash === 'SSO_BCP_USER';
+    const esUsuarioBCP = payflowUser.passwordHash === "SSO_BCP_USER";
 
     if (esUsuarioBCP) {
-      console.log(`[UsersService] Usuario BCP ${usuarioId} actualizando perfil (Campos restringidos)`);
-      
-      if (clientData.telefono !== undefined) dataToUpdate.telefono = clientData.telefono;
-      if (clientData.avatar_url !== undefined) dataToUpdate.avatar_url = clientData.avatar_url;
-      if (clientData.banner_url !== undefined) dataToUpdate.banner_url = clientData.banner_url;
-      
-    } else {
-      console.log(`[UsersService] Usuario Local ${usuarioId} actualizando perfil`);
+      console.log(
+        `[UsersService] Usuario BCP ${usuarioId} actualizando perfil (Campos restringidos)`
+      );
 
-      if (clientData.nombre !== undefined) dataToUpdate.nombre = clientData.nombre;
-      if (clientData.telefono !== undefined) dataToUpdate.telefono = clientData.telefono;
+      if (clientData.telefono !== undefined)
+        dataToUpdate.telefono = clientData.telefono;
+      if (clientData.avatar_url !== undefined)
+        dataToUpdate.avatar_url = clientData.avatar_url;
+      if (clientData.banner_url !== undefined)
+        dataToUpdate.banner_url = clientData.banner_url;
+    } else {
+      console.log(
+        `[UsersService] Usuario Local ${usuarioId} actualizando perfil`
+      );
+
+      if (clientData.nombre !== undefined)
+        dataToUpdate.nombre = clientData.nombre;
+      if (clientData.telefono !== undefined)
+        dataToUpdate.telefono = clientData.telefono;
       if (clientData.email !== undefined) dataToUpdate.email = clientData.email;
-      if (clientData.avatar_url !== undefined) dataToUpdate.avatar_url = clientData.avatar_url;
-      if (clientData.banner_url !== undefined) dataToUpdate.banner_url = clientData.banner_url;
+      if (clientData.avatar_url !== undefined)
+        dataToUpdate.avatar_url = clientData.avatar_url;
+      if (clientData.banner_url !== undefined)
+        dataToUpdate.banner_url = clientData.banner_url;
 
       if (clientData.password) {
-         dataToUpdate.password_hash = await bcrypt.hash(clientData.password, 10);
+        dataToUpdate.password_hash = await bcrypt.hash(clientData.password, 10);
       }
     }
 
     if (Object.keys(dataToUpdate).length === 0) {
-        return payflowUser;
+      return payflowUser;
     }
 
-    const updatedUser = await this.usersRepository.updateUser(usuarioId, dataToUpdate);
-    
+    const updatedUser = await this.usersRepository.updateUser(
+      usuarioId,
+      dataToUpdate
+    );
+
     return updatedUser;
   }
   async getClienteByUsuarioId(usuarioId) {

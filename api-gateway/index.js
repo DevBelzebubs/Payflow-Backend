@@ -6,7 +6,7 @@ try {
   const cors = require("cors");
   const axios = require("axios");
   const authMiddleware = require("../microservices/auth/src/infrastructure/authMiddleware");
-
+  const { resolveService }= require("../utils/ConsulResolver")
   const app = express();
   const PORT = process.env.API_GATEWAY_PORT || 3000;
 
@@ -21,33 +21,17 @@ try {
   app.use(cors());
   app.use(express.json({ limit: "10mb" }));
   app.use(express.urlencoded({ limit: "10mb", extended: true }));
-  const AUTH_SERVICE_URL =
-    process.env.AUTH_SERVICE_URL || "http://localhost:3001";
-  const USERS_SERVICE_URL =
-    process.env.USERS_SERVICE_URL || "http://localhost:3002";
-  const PRODUCTS_SERVICE_URL =
-    process.env.PRODUCTS_SERVICE_URL || "http://localhost:3003";
-  const SERVICES_SERVICE_URL =
-    process.env.SERVICES_SERVICE_URL || "http://localhost:3004";
-  const ORDERS_SERVICE_URL =
-    process.env.ORDERS_SERVICE_URL || "http://localhost:3005";
-  const BANK_ACCOUNTS_SERVICE_URL =
-    process.env.BANK_ACCOUNTS_SERVICE_URL || "http://localhost:3006";
+  
 
-  const proxyRequest = async (
-    serviceUrl,
-    path,
-    method,
-    data,
-    originalHeaders
-  ) => {
+  const proxyRequest = async (serviceName, path, method, data, originalHeaders) => {
+    const serviceUrl = await resolveService(serviceName);
     try {
       const headersToSend = {};
 
       if (originalHeaders && originalHeaders.authorization) {
         headersToSend["Authorization"] = originalHeaders.authorization;
       }
-      if (data) {
+      if (data && !(data instanceof require('stream'))) {
         headersToSend["Content-Type"] = "application/json";
       }
 
@@ -56,6 +40,8 @@ try {
         url: `${serviceUrl}${path}`,
         data,
         headers: headersToSend,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
       });
       return response.data;
     } catch (error) {
@@ -71,7 +57,7 @@ try {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const data = await proxyRequest(
-        AUTH_SERVICE_URL,
+        "auth-service",
         "/api/auth/register",
         "POST",
         req.body
@@ -86,7 +72,7 @@ try {
   app.post("/api/auth/login", async (req, res) => {
     try {
       const data = await proxyRequest(
-        AUTH_SERVICE_URL,
+        "auth-service",
         "/api/auth/login",
         "POST",
         req.body
@@ -101,7 +87,7 @@ try {
   app.get("/api/auth/verify", async (req, res) => {
     try {
       const data = await proxyRequest(
-        AUTH_SERVICE_URL,
+        "auth-service",
         "/api/auth/verify",
         "GET",
         null,
@@ -113,11 +99,11 @@ try {
       res.status(error.status || 401).json(error);
     }
   });
-
+  
   app.post("/api/clientes/sync", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        USERS_SERVICE_URL,
+        "users-service",
         "/api/clientes/sync",
         "POST",
         req.body,
@@ -133,7 +119,7 @@ try {
   app.post("/api/clientes", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        USERS_SERVICE_URL,
+        "users-service",
         "/api/clientes",
         "POST",
         req.body,
@@ -152,7 +138,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          USERS_SERVICE_URL,
+          "users-service",
           req.path,
           "GET",
           null,
@@ -172,7 +158,7 @@ try {
   app.get("/api/clientes", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        USERS_SERVICE_URL,
+        "users-service",
         "/api/clientes",
         "GET",
         null,
@@ -188,7 +174,7 @@ try {
   app.post("/api/administradores", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        USERS_SERVICE_URL,
+        "users-service",
         "/api/administradores",
         "POST",
         req.body,
@@ -200,12 +186,29 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
+  
+  app.put("/api/users/profile", authMiddleware, async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        "/api/users/profile",
+        "PUT",
+        req.body,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/users/profile:", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
 
   app.get("/api/productos", async (req, res) => {
     try {
       const queryString = new URLSearchParams(req.query).toString();
       const data = await proxyRequest(
-        PRODUCTS_SERVICE_URL,
+        "products-service",
         `/api/productos?${queryString}`,
         "GET"
       );
@@ -219,7 +222,7 @@ try {
   app.get("/api/productos/:productoId", async (req, res) => {
     try {
       const data = await proxyRequest(
-        PRODUCTS_SERVICE_URL,
+        "products-service",
         `/api/productos/${req.params.productoId}`,
         "GET"
       );
@@ -236,7 +239,7 @@ try {
   app.post("/api/productos", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        PRODUCTS_SERVICE_URL,
+        "products-service",
         "/api/productos",
         "POST",
         req.body,
@@ -252,7 +255,7 @@ try {
   app.put("/api/productos/:productoId", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        PRODUCTS_SERVICE_URL,
+        "products-service",
         `/api/productos/${req.params.productoId}`,
         "PUT",
         req.body,
@@ -271,7 +274,7 @@ try {
   app.delete("/api/productos/:productoId", authMiddleware, async (req, res) => {
     try {
       await proxyRequest(
-        PRODUCTS_SERVICE_URL,
+        "products-service",
         `/api/productos/${req.params.productoId}`,
         "DELETE",
         null,
@@ -286,10 +289,11 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
+  
   app.get("/api/servicios/mis-deudas", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         "/api/servicios/mis-deudas",
         "GET",
         null,
@@ -305,7 +309,7 @@ try {
     try {
       const queryString = new URLSearchParams(req.query).toString();
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios?${queryString}`,
         "GET"
       );
@@ -319,7 +323,7 @@ try {
   app.get("/api/servicios/:idServicio", async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios/${req.params.idServicio}`,
         "GET"
       );
@@ -335,7 +339,7 @@ try {
   app.get("/api/servicios/:idServicio/tipos-entrada", async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios/${req.params.idServicio}/tipos-entrada`,
         "GET"
       );
@@ -348,7 +352,7 @@ try {
   app.get("/api/servicios/:idServicio/butacas", async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios/${req.params.idServicio}/butacas`,
         "GET"
       );
@@ -364,7 +368,7 @@ try {
   app.post("/api/servicios", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         "/api/servicios",
         "POST",
         req.body,
@@ -380,7 +384,7 @@ try {
   app.put("/api/servicios/:servicioId", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios/${req.params.servicioId}`,
         "PUT",
         req.body,
@@ -395,25 +399,11 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
-  app.put("/api/users/profile", authMiddleware, async (req, res) => {
-    try {
-      const data = await proxyRequest(
-        USERS_SERVICE_URL,
-        "/api/users/profile",
-        "PUT",
-        req.body,
-        req.headers
-      );
-      res.status(200).json(data);
-    } catch (error) {
-      console.error("[Gateway] Error en /api/users/profile:", error);
-      res.status(error.status || 400).json(error);
-    }
-  });
+
   app.delete("/api/servicios/:servicioId", authMiddleware, async (req, res) => {
     try {
       await proxyRequest(
-        SERVICES_SERVICE_URL,
+        "services-service",
         `/api/servicios/${req.params.servicioId}`,
         "DELETE",
         null,
@@ -428,13 +418,26 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
-  app.get("/api/ordenes/cuentas-bcp", authMiddleware, (req, res) =>
-    ordersController.getCuentasBcp(req, res)
-  );
+  app.get("/api/ordenes/cuentas-bcp", authMiddleware, async (req, res) => {
+     try {
+      const data = await proxyRequest(
+        "orders-service", 
+        "/api/ordenes/cuentas-bcp",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/ordenes/cuentas-bcp:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+  
   app.post("/api/ordenes", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        ORDERS_SERVICE_URL,
+        "orders-service",
         "/api/ordenes",
         "POST",
         req.body,
@@ -446,16 +449,19 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
+  
   app.post("/api/ordenes/webhook", async (req, res) => {
     try {
       const queryString = new URLSearchParams(req.query).toString();
       const url = `/api/ordenes/webhook?${queryString}`;
 
-      await axios({
-        method: "post",
-        url: `${ORDERS_SERVICE_URL}${url}`,
-        data: req.body,
-      });
+      await proxyRequest(
+        "orders-service",
+        url,
+        "POST",
+        req.body,
+        req.headers
+      );
       res.sendStatus(200);
     } catch (error) {
       console.error("[Gateway] Error en webhook:", error.message);
@@ -466,7 +472,7 @@ try {
   app.get("/api/ordenes/:ordenId", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        ORDERS_SERVICE_URL,
+        "orders-service",
         `/api/ordenes/${req.params.ordenId}`,
         "GET",
         null,
@@ -485,7 +491,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          ORDERS_SERVICE_URL,
+          "orders-service",
           `/api/ordenes/cliente/${req.params.clienteId}`,
           "GET",
           null,
@@ -505,7 +511,7 @@ try {
   app.get("/api/ordenes", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        ORDERS_SERVICE_URL,
+        "orders-service",
         "/api/ordenes",
         "GET",
         null,
@@ -524,7 +530,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          ORDERS_SERVICE_URL,
+          "orders-service",
           `/api/ordenes/${req.params.ordenId}/estado`,
           "PATCH",
           req.body,
@@ -547,7 +553,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          ORDERS_SERVICE_URL,
+          "orders-service",
           `/api/ordenes/${req.params.ordenId}/cancelar`,
           "POST",
           null,
@@ -567,7 +573,7 @@ try {
   app.post("/api/cuentas-bancarias", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(
-        BANK_ACCOUNTS_SERVICE_URL,
+        "bank-accounts-service",
         "/api/cuentas-bancarias",
         "POST",
         req.body,
@@ -585,7 +591,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           "/api/cuentas-bancarias/recargar",
           "POST",
           req.body,
@@ -607,7 +613,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           "/api/cuentas-bancarias/mis-cuentas",
           "GET",
           null,
@@ -629,7 +635,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           `/api/cuentas-bancarias/cliente/${req.params.clienteId}`,
           "GET",
           null,
@@ -652,7 +658,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           `/api/cuentas-bancarias/${req.params.cuentaId}`,
           "GET",
           null,
@@ -675,7 +681,7 @@ try {
     async (req, res) => {
       try {
         const data = await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           `/api/cuentas-bancarias/${req.params.cuentaId}`,
           "PUT",
           req.body,
@@ -698,7 +704,7 @@ try {
     async (req, res) => {
       try {
         await proxyRequest(
-          BANK_ACCOUNTS_SERVICE_URL,
+          "bank-accounts-service",
           `/api/cuentas-bancarias/${req.params.cuentaId}`,
           "DELETE",
           null,

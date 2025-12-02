@@ -1,4 +1,4 @@
-const cloudinary = require('./cloudinaryConfig'); 
+const { cloudinary } = require('./cloudinaryConfig'); 
 async function uploadFile(file, folder) {
     if (!file || !file.tempFilePath) return null;
     try {

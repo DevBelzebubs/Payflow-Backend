@@ -1,16 +1,13 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-
+const { resolveService }= require("../../../../utils/ConsulResolver")
 class AuthService {
   constructor(authRepository) {
     this.authRepository = authRepository;
     this.JWT_SECRET = process.env.JWT_SECRET;
     this.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "24h";
-
     this.BCP_ROOT_URL = process.env.BCP_ROOT_URL || "http://localhost:8080";
-    this.USERS_SERVICE_URL =
-      process.env.USERS_SERVICE_URL || "http://localhost:3002";
 
     if (!this.JWT_SECRET) {
       throw new Error(
@@ -90,6 +87,7 @@ class AuthService {
   }
 
   async loginViaBcp(email, password) {
+    const usersBaseUrl = await resolveService('users-service');
     let bcpAuthResponse;
     try {
       console.log(
@@ -117,7 +115,7 @@ class AuthService {
     let syncResponse;
     try {
       syncResponse = await axios.post(
-        `${this.USERS_SERVICE_URL}/api/clientes/sync`,{},
+        `${usersBaseUrl}/api/clientes/sync`,{},
         { headers: { Authorization: `Bearer ${bcpToken}` } }
       );
     } catch (syncError) {
