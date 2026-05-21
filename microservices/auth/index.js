@@ -3,15 +3,19 @@ require('../../database/sqlServerConfig');
 const express = require('express');
 const cors = require('cors');
 
-const SqlServerAuthRepository = require('./src/infrastructure/SqlServerAuthRepository');
-const AuthService = require('./src/application/AuthService');
-const AuthController = require('./src/infrastructure/AuthController');
+const SqlServerAuthRepository = require('./src/infrastructure/adapters/outbound/repositories/SqlServerAuthRepository');
+const BcryptPasswordHasher = require('../shared/infrastructure/BcryptPasswordHasher');
+const JwtTokenGenerator = require('../shared/infrastructure/JwtTokenGenerator');
+const BcpAuthApiClient = require('./src/infrastructure/adapters/outbound/external/BcpAuthApiClient');
+const UserServiceHttpClient = require('./src/infrastructure/adapters/outbound/external/UserServiceHttpClient');
+const AuthService = require('./src/application/services/AuthService');
+const AuthController = require('./src/infrastructure/adapters/inbound/AuthController');
 
 const Consul = require('consul');
 const PORT = process.env.AUTH_PORT || 3001;
 const SERVICE_NAME = 'auth-service';
 const HOST_IP = process.env.HOST_IP || '127.0.0.1';
-const CONSUL_ID = `${SERVICE_NAME}-${HOST_IP}:${PORT}`; 
+const CONSUL_ID = `${SERVICE_NAME}-${HOST_IP}:${PORT}`;
 const CONSUL_HOST = process.env.CONSUL_HOST || 'localhost';
 
 const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
@@ -21,7 +25,19 @@ app.use(cors());
 app.use(express.json());
 
 const authRepository = new SqlServerAuthRepository();
-const authService = new AuthService(authRepository);
+const passwordHasher = new BcryptPasswordHasher();
+const tokenGenerator = new JwtTokenGenerator();
+const bcpAuthClient = new BcpAuthApiClient();
+const userServiceClient = new UserServiceHttpClient();
+
+const authService = new AuthService({
+  authRepository,
+  passwordHasher,
+  tokenGenerator,
+  bcpAuthClient,
+  userServiceClient,
+});
+
 const authController = new AuthController(authService);
 
 app.post('/api/auth/register', (req, res) => authController.register(req, res));
@@ -38,7 +54,7 @@ const server = app.listen(PORT, () => {
     id: CONSUL_ID,
     name: SERVICE_NAME,
     address: HOST_IP,
-    port: parseInt(PORT), 
+    port: parseInt(PORT),
     check: {
       http: `http://${HOST_IP}:${PORT}/health`,
       interval: '10s',

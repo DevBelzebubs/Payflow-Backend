@@ -127,6 +127,20 @@ class SqlServerAuthRepository extends IAuthRepository {
       throw new Error(`Error actualizando usuario: ${error.message}`);
     }
   }
+  async findAdminLevelByUsuarioId(usuarioId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+        .query('SELECT nivel_acceso FROM administradores WHERE usuario_id = @usuario_id');
+      if (result.recordset.length === 0) return null;
+      return result.recordset[0].nivel_acceso;
+    } catch (error) {
+      throw new Error(`Error buscando nivel de admin: ${error.message}`);
+    }
+  }
+
   async findClienteIdByUsuarioId(usuarioId) {
     try {
       const pool = await getPool();

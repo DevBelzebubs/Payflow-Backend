@@ -14,13 +14,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const SqlServerServicesRepository = require("./src/infrastructure/SqlServerServicesRepository");
-const ServicesService = require("./src/application/ServicesService");
-const ServicesController = require("./src/infrastructure/ServicesController");
-const authMiddleware = require("./src/infrastructure/authMiddleware");
+const SqlServerServicesRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerServicesRepository");
+const BcpServiceApiClient = require("./src/infrastructure/adapters/outbound/external/BcpServiceApiClient");
+const ServicesService = require("./src/application/services/ServicesService");
+const ServicesController = require("./src/infrastructure/adapters/inbound/ServicesController");
+const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
 
 const servicesRepository = new SqlServerServicesRepository();
-const servicesService = new ServicesService(servicesRepository);
+const bcpServiceClient = new BcpServiceApiClient();
+const servicesService = new ServicesService({ servicesRepository, bcpServiceClient });
 const servicesController = new ServicesController(servicesService);
 
 app.post("/api/servicios", (req, res) =>
@@ -40,9 +42,6 @@ app.get("/api/servicios/:idServicio/butacas", (req, res) =>
 );
 app.get("/api/servicios", (req, res) =>
   servicesController.getAllServicios(req, res)
-);
-app.get("/api/servicios/:idServicio/butacas", (req, res) =>
-  servicesController.getButacas(req, res)
 );
 app.get("/api/servicios/:idServicio/tipos-entrada", (req, res) =>
   servicesController.getTiposEntrada(req, res)
@@ -78,13 +77,9 @@ const server = app.listen(PORT, () => {
 
   consul.agent.service.register(registration, (err) => {
     if (err) {
-      console.error(
-        `[Consul] Failed to register ${SERVICE_NAME}: ${err.message}`
-      );
+      console.error(`[Consul] Failed to register ${SERVICE_NAME}: ${err.message}`);
     } else {
-      console.log(
-        `[Consul] Successfully registered ${SERVICE_NAME} with ID ${CONSUL_ID}`
-      );
+      console.log(`[Consul] Successfully registered ${SERVICE_NAME} with ID ${CONSUL_ID}`);
     }
   });
 });
@@ -92,9 +87,7 @@ process.on("SIGINT", () => {
   console.log(`\n[Consul] Deregistering ${CONSUL_ID}`);
   consul.agent.service.deregister(CONSUL_ID, (err) => {
     if (err) {
-      console.error(
-        `[Consul] Error deregistering ${CONSUL_ID}: ${err.message}`
-      );
+      console.error(`[Consul] Error deregistering ${CONSUL_ID}: ${err.message}`);
     } else {
       console.log(`[Consul] Successfully deregistered ${CONSUL_ID}`);
     }

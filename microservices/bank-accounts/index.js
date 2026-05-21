@@ -10,11 +10,12 @@ const CONSUL_ID = `${SERVICE_NAME}-${HOST_IP}:${PORT}`;
 const CONSUL_HOST = process.env.CONSUL_HOST || 'localhost';
 const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
 
-const authMiddleware = require('../auth/src/infrastructure/authMiddleware');
+const authMiddleware = require('../shared/infrastructure/middleware/authMiddleware');
 
-const SqlServerBankAccountsRepository = require('./src/infrastructure/SqlServerBankAccountsRepository');
-const BankAccountsService = require('./src/application/BankAccountsService');
-const BankAccountsController = require('./src/infrastructure/BankAccountsController');
+const SqlServerBankAccountsRepository = require('./src/infrastructure/adapters/outbound/repositories/SqlServerBankAccountsRepository');
+const BcpAccountApiClient = require('./src/infrastructure/adapters/outbound/external/BcpAccountApiClient');
+const BankAccountsService = require('./src/application/services/BankAccountsService');
+const BankAccountsController = require('./src/infrastructure/adapters/inbound/BankAccountsController');
 
 const app = express();
 
@@ -22,7 +23,8 @@ app.use(cors());
 app.use(express.json());
 
 const bankAccountsRepository = new SqlServerBankAccountsRepository();
-const bankAccountsService = new BankAccountsService(bankAccountsRepository);
+const bcpAccountClient = new BcpAccountApiClient();
+const bankAccountsService = new BankAccountsService({ bankAccountsRepository, bcpAccountClient });
 const bankAccountsController = new BankAccountsController(bankAccountsService);
 
 app.get('/api/cuentas-bancarias/mis-cuentas', authMiddleware, (req, res) => bankAccountsController.getMyUnifiedAccounts(req, res));
@@ -45,14 +47,13 @@ const server = app.listen(PORT, () => {
     id: CONSUL_ID,
     name: SERVICE_NAME,
     address: HOST_IP,
-    port: parseInt(PORT), 
+    port: parseInt(PORT),
     check: {
       http: `http://${HOST_IP}:${PORT}/health`,
       interval: '10s',
       timeout: '5s',
     },
   };
-
   consul.agent.service.register(registration, (err) => {
     if (err) {
       console.error(`[Consul] Failed to register ${SERVICE_NAME}: ${err.message}`);

@@ -76,6 +76,85 @@ class UsersController {
     }
   }
 
+  async getAllUsuarios(req, res) {
+    try {
+      const usuarios = await this.usersService.getAllUsuarios();
+      const filtered = usuarios.map(u => ({
+        id: u.id,
+        email: u.email,
+        nombre: u.nombre,
+        telefono: u.telefono,
+        activo: u.activo,
+        rol: u.rol,
+        dni: u.dni,
+        avatar_url: u.avatar_url,
+        banner_url: u.banner_url,
+        created_at: u.created_at,
+        admin_id: u.admin_id,
+        nivelAcceso: u.nivel_acceso,
+      }));
+      res.status(200).json(filtered);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async getUsuarioById(req, res) {
+    try {
+      const { id } = req.params;
+      const usuario = await this.usersService.getUsuarioById(id);
+      if (!usuario) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      res.status(200).json(usuario);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async updateUsuarioRol(req, res) {
+    try {
+      const { id } = req.params;
+      const { rol, nivelAcceso } = req.body;
+      if (!rol) {
+        return res.status(400).json({ error: 'rol es requerido' });
+      }
+      const usuario = await this.usersService.updateUsuarioRol(id, rol, nivelAcceso || null);
+      res.status(200).json(usuario);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async toggleUsuarioActivo(req, res) {
+    try {
+      const { id } = req.params;
+      const usuario = await this.usersService.toggleUsuarioActivo(id);
+      res.status(200).json(usuario);
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async getAdminStats(req, res) {
+    try {
+      const stats = await this.usersService.getAdminStats();
+      res.status(200).json(stats);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async deleteAdministradorById(req, res) {
+    try {
+      const { adminId } = req.params;
+      await this.usersService.deleteAdministrador(adminId);
+      res.status(200).json({ message: 'Administrador eliminado correctamente' });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
   async createAdministrador(req, res) {
     try {
       const { usuario_id, nivel_acceso } = req.body;
@@ -147,6 +226,22 @@ class UsersController {
     } catch (error) {
       console.error("[UsersController] Error updating profile:", error);
       res.status(400).json({ error: error.message });
+    }
+  }
+
+  async verifyAdmin(req, res) {
+    try {
+      const { userId } = req.user;
+      if (!userId) {
+        return res.status(401).json({ error: "Usuario no identificado" });
+      }
+      const admin = await this.usersService.getAdministradorByUsuarioId(userId);
+      res.status(200).json({
+        isAdmin: !!admin,
+        nivelAcceso: admin ? admin.nivelAcceso : null,
+      });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
     }
   }
 }

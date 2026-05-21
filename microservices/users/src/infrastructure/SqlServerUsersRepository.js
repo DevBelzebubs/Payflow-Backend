@@ -161,6 +161,11 @@ class SqlServerUsersRepository {
 
       const data = result.recordset[0];
 
+      await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, data.usuario_id)
+        .query("UPDATE usuarios SET rol = 'ADMIN', updated_at = GETDATE() WHERE id = @id");
+
       const usuario = await pool
         .request()
         .input('id', sql.UniqueIdentifier, data.usuario_id)
@@ -265,6 +270,138 @@ class SqlServerUsersRepository {
       throw new Error(`Error buscando usuario por ID: ${error.message}`);
     }
   }
+  async findAllUsuarios() {
+    try {
+      const pool = await getPool();
+      const result = await pool.request().query(`
+        SELECT
+          u.id, u.email, u.nombre, u.telefono, u.activo, u.rol, u.dni,
+          u.avatar_url, u.banner_url, u.created_at,
+          a.id as admin_id, a.nivel_acceso
+        FROM usuarios u
+        LEFT JOIN administradores a ON u.id = a.usuario_id
+        ORDER BY u.created_at DESC
+      `);
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Error obteniendo usuarios: ${error.message}`);
+    }
+  }
+
+  async findUsuarioById(id) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, id)
+        .query(`
+          SELECT
+            u.*, a.id as admin_id, a.nivel_acceso
+          FROM usuarios u
+          LEFT JOIN administradores a ON u.id = a.usuario_id
+          WHERE u.id = @id
+        `);
+      if (result.recordset.length === 0) return null;
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Error buscando usuario: ${error.message}`);
+    }
+  }
+
+  async updateUsuarioRol(usuarioId, rol, nivelAcceso) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, usuarioId)
+        .input('rol', sql.NVarChar, rol)
+        .query(`UPDATE usuarios SET rol = @rol, updated_at = GETDATE() WHERE id = @id`);
+
+      if (nivelAcceso) {
+        const existing = await pool
+          .request()
+          .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+          .query('SELECT id FROM administradores WHERE usuario_id = @usuario_id');
+        if (existing.recordset.length > 0) {
+          await pool
+            .request()
+            .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+            .input('nivel_acceso', sql.NVarChar, nivelAcceso)
+            .query('UPDATE administradores SET nivel_acceso = @nivel_acceso, updated_at = GETDATE() WHERE usuario_id = @usuario_id');
+        } else {
+          await pool
+            .request()
+            .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+            .input('nivel_acceso', sql.NVarChar, nivelAcceso)
+            .query('INSERT INTO administradores (usuario_id, nivel_acceso) VALUES (@usuario_id, @nivel_acceso)');
+        }
+      } else {
+        await pool
+          .request()
+          .input('usuario_id', sql.UniqueIdentifier, usuarioId)
+          .query('DELETE FROM administradores WHERE usuario_id = @usuario_id');
+      }
+
+      return await this.findUsuarioById(usuarioId);
+    } catch (error) {
+      throw new Error(`Error actualizando rol de usuario: ${error.message}`);
+    }
+  }
+
+  async toggleUsuarioActivo(usuarioId) {
+    try {
+      const pool = await getPool();
+      const user = await this.findUsuarioById(usuarioId);
+      if (!user) throw new Error('Usuario no encontrado');
+      const newState = !user.activo;
+      await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, usuarioId)
+        .input('activo', sql.Bit, newState ? 1 : 0)
+        .query('UPDATE usuarios SET activo = @activo, updated_at = GETDATE() WHERE id = @id');
+      return { ...user, activo: newState };
+    } catch (error) {
+      throw new Error(`Error cambiando estado del usuario: ${error.message}`);
+    }
+  }
+
+  async getAdminStats() {
+    try {
+      const pool = await getPool();
+      const totalUsuarios = await pool.request().query('SELECT COUNT(*) as count FROM usuarios');
+      const totalClientes = await pool.request().query('SELECT COUNT(*) as count FROM clientes');
+      const totalAdmins = await pool.request().query('SELECT COUNT(*) as count FROM administradores');
+      const totalProductos = await pool.request().query('SELECT COUNT(*) as count FROM productos');
+      const totalServicios = await pool.request().query('SELECT COUNT(*) as count FROM servicios');
+      const totalOrdenes = await pool.request().query('SELECT COUNT(*) as count FROM ordenes_compra');
+      const usuariosActivos = await pool.request().query("SELECT COUNT(*) as count FROM usuarios WHERE activo = 1");
+      return {
+        totalUsuarios: totalUsuarios.recordset[0].count,
+        totalClientes: totalClientes.recordset[0].count,
+        totalAdmins: totalAdmins.recordset[0].count,
+        totalProductos: totalProductos.recordset[0].count,
+        totalServicios: totalServicios.recordset[0].count,
+        totalOrdenes: totalOrdenes.recordset[0].count,
+        usuariosActivos: usuariosActivos.recordset[0].count,
+      };
+    } catch (error) {
+      throw new Error(`Error obteniendo estadísticas: ${error.message}`);
+    }
+  }
+
+  async deleteAdministrador(adminId) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, adminId)
+        .query('DELETE FROM administradores WHERE id = @id');
+      return true;
+    } catch (error) {
+      throw new Error(`Error eliminando administrador: ${error.message}`);
+    }
+  }
+
   async updateUser(usuarioId, updateData) {
     try {
       const pool = await getPool();

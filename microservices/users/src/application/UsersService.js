@@ -1,7 +1,7 @@
 const axios = require("axios");
 const bcrypt = require("bcryptjs");
-const { getPool, sql } = require("../../../../database/sqlServerConfig");
-const { resolveService }= require("../../../../utils/ConsulResolver")
+const { getPool, sql } = require("../../../../../database/sqlServerConfig");
+const { resolveService }= require("../../../../../utils/ConsulResolver")
 
 class UsersService {
   constructor(usersRepository, authRepository) {
@@ -175,6 +175,30 @@ class UsersService {
 
   async getAllClientes() {
     return await this.usersRepository.findAllClientes();
+  }
+
+  async getAllUsuarios() {
+    return await this.usersRepository.findAllUsuarios();
+  }
+
+  async getUsuarioById(id) {
+    return await this.usersRepository.findUsuarioById(id);
+  }
+
+  async updateUsuarioRol(usuarioId, rol, nivelAcceso) {
+    return await this.usersRepository.updateUsuarioRol(usuarioId, rol, nivelAcceso);
+  }
+
+  async toggleUsuarioActivo(usuarioId) {
+    return await this.usersRepository.toggleUsuarioActivo(usuarioId);
+  }
+
+  async getAdminStats() {
+    return await this.usersRepository.getAdminStats();
+  }
+
+  async deleteAdministrador(adminId) {
+    return await this.usersRepository.deleteAdministrador(adminId);
   }
 
   async createAdministrador(adminData) {

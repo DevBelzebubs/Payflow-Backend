@@ -1,16 +1,21 @@
 require("../../database/sqlServerConfig");
 const express = require("express");
 const cors = require("cors");
-const authMiddleware = require("../auth/src/infrastructure/authMiddleware");
-const SqlServerOrdersRepository = require("./src/infrastructure/SqlServerOrdersRepository");
-const OrdersService = require("./src/application/OrdersService");
-const OrdersController = require("./src/infrastructure/OrdersController");
+const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
+const SqlServerOrdersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerOrdersRepository");
+const ProductServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ProductServiceHttpClient");
+const ServiceServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ServiceServiceHttpClient");
+const BankAccountServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/BankAccountServiceHttpClient");
+const MercadoPagoHttpClient = require("./src/infrastructure/adapters/outbound/external/MercadoPagoHttpClient");
+const BcpPaymentApiClient = require("./src/infrastructure/adapters/outbound/external/BcpPaymentApiClient");
+const OrdersService = require("./src/application/services/OrdersService");
+const OrdersController = require("./src/infrastructure/adapters/inbound/OrdersController");
 
 const Consul = require("consul");
 const PORT = process.env.ORDERS_PORT || 3005;
 const SERVICE_NAME = "orders-service";
 const HOST_IP = process.env.HOST_IP || "127.0.0.1";
-const CONSUL_ID = "orders-service" + PORT;
+const CONSUL_ID = `${SERVICE_NAME}-${HOST_IP}:${PORT}`;
 const CONSUL_HOST = process.env.CONSUL_HOST || "localhost";
 
 const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
@@ -21,7 +26,20 @@ app.use(cors());
 app.use(express.json());
 
 const ordersRepository = new SqlServerOrdersRepository();
-const ordersService = new OrdersService(ordersRepository);
+const productService = new ProductServiceHttpClient();
+const serviceService = new ServiceServiceHttpClient();
+const bankAccountService = new BankAccountServiceHttpClient();
+const mercadopagoClient = new MercadoPagoHttpClient();
+const bcpPaymentClient = new BcpPaymentApiClient();
+
+const ordersService = new OrdersService({
+  ordersRepository,
+  productService,
+  serviceService,
+  bankAccountService,
+  mercadopagoClient,
+  bcpPaymentClient,
+});
 const ordersController = new OrdersController(ordersService);
 
 app.post("/api/ordenes", authMiddleware, (req, res) =>
@@ -40,6 +58,7 @@ app.get("/api/ordenes/cliente/:clienteId", (req, res) =>
   ordersController.getOrdenesByCliente(req, res)
 );
 app.get("/api/ordenes", (req, res) => ordersController.getAllOrdenes(req, res));
+app.get("/api/admin/ordenes/stats", (req, res) => ordersController.getSalesStats(req, res));
 app.patch("/api/ordenes/:ordenId/estado", (req, res) =>
   ordersController.updateOrdenEstado(req, res)
 );
@@ -68,13 +87,11 @@ const server = app.listen(PORT, () => {
     if (err) {
       console.error(`[Consul] Failed to register service: ${err.message}`);
     } else {
-      console.log(
-        `[Consul] Service ${SERVICE_NAME} registered with ID ${CONSUL_ID}`
-      );
+      console.log(`[Consul] Service ${SERVICE_NAME} registered with ID ${CONSUL_ID}`);
     }
   });
 });
-process.on("SIGNIN", () => {
+process.on("SIGINT", () => {
   console.log(`[Consul] Deregistering service ${CONSUL_ID}`);
   consul.agent.service.deregister(CONSUL_ID, (err) => {
     if (err) console.error(`[Consul] Error deregistering: ${err.message}`);

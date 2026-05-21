@@ -9,22 +9,17 @@ const CONSUL_ID = `${SERVICE_NAME}-${HOST_IP}:${PORT}`;
 const CONSUL_HOST = process.env.CONSUL_HOST || "localhost";
 
 const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
-console.log("[Users] Cargando middleware...");
-const authMiddleware = require("./src/infrastructure/authMiddleware");
 
-console.log("[Users] Cargando UserRepo...");
-const SqlServerUsersRepository = require("./src/infrastructure/SqlServerUsersRepository");
+const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
+const requireAdmin = require("../shared/infrastructure/middleware/requireAdmin");
 
-console.log("[Users] Cargando AuthRepo...");
-const SqlServerAuthRepository = require("./src/infrastructure/SqlServerAuthRepository");
+const SqlServerUsersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerUsersRepository");
+const SqlServerAuthRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerAuthRepository");
+const BankAccountServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/BankAccountServiceHttpClient");
+const BcryptPasswordHasher = require("../shared/infrastructure/BcryptPasswordHasher");
+const UsersService = require("./src/application/services/UsersService");
+const UsersController = require("./src/infrastructure/adapters/inbound/UsersController");
 
-console.log("[Users] Cargando UserService...");
-const UsersService = require("./src/application/UsersService");
-
-console.log("[Users] Cargando UserController...");
-const UsersController = require("./src/infrastructure/UsersController");
-
-console.log("[Users] Creando app express...");
 const app = express();
 
 app.use(cors());
@@ -33,8 +28,15 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 const usersRepository = new SqlServerUsersRepository();
 const authRepository = new SqlServerAuthRepository();
+const bankAccountService = new BankAccountServiceHttpClient();
+const passwordHasher = new BcryptPasswordHasher();
 
-const usersService = new UsersService(usersRepository, authRepository);
+const usersService = new UsersService({
+  usersRepository,
+  authRepository,
+  bankAccountService,
+  passwordHasher,
+});
 const usersController = new UsersController(usersService);
 
 app.post("/api/clientes/sync", authMiddleware, (req, res) =>
@@ -64,6 +66,28 @@ app.get("/api/administradores/usuario/:usuarioId", (req, res) =>
 app.get("/api/administradores", (req, res) =>
   usersController.getAllAdministradores(req, res)
 );
+app.get("/api/admin/usuarios", requireAdmin(), (req, res) =>
+  usersController.getAllUsuarios(req, res)
+);
+app.get("/api/admin/usuarios/:id", requireAdmin(), (req, res) =>
+  usersController.getUsuarioById(req, res)
+);
+app.put("/api/admin/usuarios/:id/rol", requireAdmin(), (req, res) =>
+  usersController.updateUsuarioRol(req, res)
+);
+app.put("/api/admin/usuarios/:id/activo", requireAdmin(), (req, res) =>
+  usersController.toggleUsuarioActivo(req, res)
+);
+app.get("/api/admin/stats", requireAdmin(), (req, res) =>
+  usersController.getAdminStats(req, res)
+);
+app.delete("/api/admin/administradores/:adminId", requireAdmin(), (req, res) =>
+  usersController.deleteAdministradorById(req, res)
+);
+
+app.get("/api/admin/verify", authMiddleware, (req, res) =>
+  usersController.verifyAdmin(req, res)
+);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: SERVICE_NAME });
@@ -71,12 +95,12 @@ app.get('/health', (req, res) => {
 
 const server = app.listen(PORT, () => {
   console.log(`${SERVICE_NAME} microservice running on port ${PORT}`);
-  
+
   const registration = {
     id: CONSUL_ID,
     name: SERVICE_NAME,
     address: HOST_IP,
-    port: parseInt(PORT), 
+    port: parseInt(PORT),
     check: {
       http: `http://${HOST_IP}:${PORT}/health`,
       interval: '10s',

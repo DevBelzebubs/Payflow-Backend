@@ -5,7 +5,8 @@ try {
   const express = require("express");
   const cors = require("cors");
   const axios = require("axios");
-  const authMiddleware = require("../microservices/auth/src/infrastructure/authMiddleware");
+  const authMiddleware = require("../microservices/shared/infrastructure/middleware/authMiddleware");
+  const requireAdmin = require("../microservices/shared/infrastructure/middleware/requireAdmin");
   const { resolveService }= require("../utils/ConsulResolver")
   const app = express();
   const PORT = process.env.API_GATEWAY_PORT || 3000;
@@ -171,7 +172,7 @@ try {
     }
   });
 
-  app.post("/api/administradores", authMiddleware, async (req, res) => {
+  app.post("/api/administradores", requireAdmin(), async (req, res) => {
     try {
       const data = await proxyRequest(
         "users-service",
@@ -186,7 +187,361 @@ try {
       res.status(error.status || 400).json(error);
     }
   });
-  
+
+  app.get("/api/administradores", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        "/api/administradores",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/administradores (GET):", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/administradores/usuario/:usuarioId", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        `/api/administradores/usuario/${req.params.usuarioId}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/administradores/usuario/:usuarioId:", error);
+      res.status(error.status || 404).json(error);
+    }
+  });
+
+  app.get("/api/admin/usuarios", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        "/api/admin/usuarios",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/usuarios:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/admin/usuarios/:id", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        `/api/admin/usuarios/${req.params.id}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/usuarios/:id:", error);
+      res.status(error.status || 404).json(error);
+    }
+  });
+
+  app.put("/api/admin/usuarios/:id/rol", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        `/api/admin/usuarios/${req.params.id}/rol`,
+        "PUT",
+        req.body,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/usuarios/:id/rol:", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.put("/api/admin/usuarios/:id/activo", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        `/api/admin/usuarios/${req.params.id}/activo`,
+        "PUT",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/usuarios/:id/activo:", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.get("/api/admin/stats", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        "/api/admin/stats",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/stats:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/admin/kpis", requireAdmin(), async (req, res) => {
+    const defaults = {
+      totalUsuarios: 0, usuariosActivos: 0, totalAdmins: 0, totalClientes: 0,
+      totalProductos: 0, totalServicios: 0, totalOrdenes: 0,
+      totalRevenue: 0, averageOrderValue: 0, totalOrders: 0,
+      today: { revenue: 0, orders: 0 },
+      ordersByStatus: { pendientes: 0, confirmadas: 0, completadas: 0, canceladas: 0 },
+      monthlyRevenue: [],
+    };
+    const results = await Promise.allSettled([
+      proxyRequest("users-service", "/api/admin/stats", "GET", null, req.headers).catch(() => ({})),
+      proxyRequest("orders-service", "/api/admin/ordenes/stats", "GET", null, req.headers).catch(() => ({})),
+    ]);
+    res.status(200).json({ ...defaults, ...results[0].value, ...results[1].value });
+  });
+
+  app.delete("/api/admin/administradores/:adminId", requireAdmin(), async (req, res) => {
+    try {
+      await proxyRequest(
+        "users-service",
+        `/api/admin/administradores/${req.params.adminId}`,
+        "DELETE",
+        null,
+        req.headers
+      );
+      res.status(200).json({ message: "Administrador eliminado correctamente" });
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/administradores/:adminId:", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.get("/api/admin/productos", requireAdmin(), async (req, res) => {
+    try {
+      const queryString = new URLSearchParams(req.query).toString();
+      const data = await proxyRequest(
+        "products-service",
+        `/api/productos?${queryString}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/admin/productos/:id", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "products-service",
+        `/api/productos/${req.params.id}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos/:id:", error);
+      res.status(error.status || 404).json(error);
+    }
+  });
+
+  app.post("/api/admin/productos", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "products-service",
+        "/api/productos",
+        "POST",
+        req.body,
+        req.headers
+      );
+      res.status(201).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos (POST):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.put("/api/admin/productos/:id", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "products-service",
+        `/api/productos/${req.params.id}`,
+        "PUT",
+        req.body,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos/:id (PUT):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.delete("/api/admin/productos/:id", requireAdmin(), async (req, res) => {
+    try {
+      await proxyRequest(
+        "products-service",
+        `/api/productos/${req.params.id}`,
+        "DELETE",
+        null,
+        req.headers
+      );
+      res.status(204).send();
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos/:id (DELETE):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.get("/api/admin/ordenes/stats", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "orders-service",
+        "/api/admin/ordenes/stats",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/ordenes/stats:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/admin/servicios", requireAdmin(), async (req, res) => {
+    try {
+      const queryString = new URLSearchParams(req.query).toString();
+      const data = await proxyRequest(
+        "services-service",
+        `/api/servicios?${queryString}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/servicios:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
+  app.get("/api/admin/servicios/:id", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "services-service",
+        `/api/servicios/${req.params.id}`,
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/servicios/:id:", error);
+      res.status(error.status || 404).json(error);
+    }
+  });
+
+  app.post("/api/admin/servicios", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "services-service",
+        "/api/servicios",
+        "POST",
+        req.body,
+        req.headers
+      );
+      res.status(201).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/servicios (POST):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.put("/api/admin/servicios/:id", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "services-service",
+        `/api/servicios/${req.params.id}`,
+        "PUT",
+        req.body,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/servicios/:id (PUT):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.delete("/api/admin/servicios/:id", requireAdmin(), async (req, res) => {
+    try {
+      await proxyRequest(
+        "services-service",
+        `/api/servicios/${req.params.id}`,
+        "DELETE",
+        null,
+        req.headers
+      );
+      res.status(204).send();
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/servicios/:id (DELETE):", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.patch("/api/admin/productos/:id/stock", requireAdmin(), async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "products-service",
+        `/api/productos/${req.params.id}/stock`,
+        "PATCH",
+        req.body,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/productos/:id/stock:", error);
+      res.status(error.status || 400).json(error);
+    }
+  });
+
+  app.get("/api/admin/verify", authMiddleware, async (req, res) => {
+    try {
+      const data = await proxyRequest(
+        "users-service",
+        "/api/admin/verify",
+        "GET",
+        null,
+        req.headers
+      );
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("[Gateway] Error en /api/admin/verify:", error);
+      res.status(error.status || 500).json(error);
+    }
+  });
+
   app.put("/api/users/profile", authMiddleware, async (req, res) => {
     try {
       const data = await proxyRequest(

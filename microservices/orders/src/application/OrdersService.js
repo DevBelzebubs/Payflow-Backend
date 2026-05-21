@@ -1,6 +1,6 @@
 const axios = require("axios");
 const { MercadoPagoConfig, Preference, Payment } = require("mercadopago");
-const { resolveService } = require("../../../../utils/ConsulResolver")
+const { resolveService } = require("../../../../../utils/ConsulResolver")
 
 class OrdersService {
   constructor(ordersRepository) {

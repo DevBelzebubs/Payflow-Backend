@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const axios = require("axios");
-const { resolveService }= require("../../../../utils/ConsulResolver")
+const { resolveService }= require("../../../../../utils/ConsulResolver")
 class AuthService {
   constructor(authRepository) {
     this.authRepository = authRepository;
@@ -24,7 +24,6 @@ class AuthService {
     if (existingUser) {
       throw new Error("El email ya está registrado");
     }
-
     const passwordHash = await bcrypt.hash(userData.password, 10);
 
     const userToCreate = {
@@ -39,7 +38,7 @@ class AuthService {
 
     const user = await this.authRepository.createUser(userToCreate);
 
-    const token = this.generateToken(user, "PAYFLOW", null);
+    const token = await this.generateToken(user, "PAYFLOW", null);
 
     return {
       user: user.toJSON(),
@@ -68,7 +67,7 @@ class AuthService {
           } catch (err) {
             console.warn(`[AuthService] No se pudo obtener clienteId para usuario local: ${err.message}`);
           }
-          const token = this.generateToken(user, "PAYFLOW", clienteId);
+          const token = await this.generateToken(user, "PAYFLOW", clienteId);
           return {
             user: user.toJSON(),
             clienteId: clienteId,
@@ -152,7 +151,7 @@ class AuthService {
 
     console.log(`[AuthService] Éxito de login (BCP) para: ${emailReal}`);
 
-    const payflowToken = this.generateToken(user, "BCP", syncedCliente.id);
+    const payflowToken = await this.generateToken(user, "BCP", syncedCliente.id);
     
     return {
       user: user.toJSON(),
@@ -162,7 +161,15 @@ class AuthService {
     };
   }
 
-  generateToken(user, userType = "PAYFLOW", clienteId = null) {
+  async generateToken(user, userType = "PAYFLOW", clienteId = null) {
+    let nivelAcceso = null;
+    if (user.rol === 'ADMIN' || user.rol === 'admin') {
+      try {
+        nivelAcceso = await this.authRepository.findAdminLevelByUsuarioId(user.id);
+      } catch (err) {
+        console.warn(`[AuthService] No se pudo obtener nivel de admin: ${err.message}`);
+      }
+    }
     return jwt.sign(
       {
         userId: user.id,
@@ -171,6 +178,7 @@ class AuthService {
         rol: user.rol,
         dni: user.dni,
         userType: userType,
+        nivelAcceso: nivelAcceso,
       },
       this.JWT_SECRET,
       { expiresIn: this.JWT_EXPIRES_IN }

@@ -1,0 +1,212 @@
+const IBankAccountsRepositoryPort = require('../../../../domain/ports/outbound/IBankAccountsRepositoryPort');
+const CuentaBancariaMapper = require('../../../mappers/CuentaBancariaMapper');
+const { getPool, sql } = require('../../../../../../../database/sqlServerConfig');
+
+class SqlServerBankAccountsRepository extends IBankAccountsRepositoryPort {
+  async createCuentaBancaria(cuentaData) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("cliente_id", sql.UniqueIdentifier, cuentaData.cliente_id)
+        .input("banco", sql.NVarChar, cuentaData.banco)
+        .input("numero_cuenta", sql.NVarChar, cuentaData.numero_cuenta)
+        .input("tipo_cuenta", sql.NVarChar, cuentaData.tipo_cuenta)
+        .input("titular", sql.NVarChar, cuentaData.titular)
+        .input("activo", sql.Bit, cuentaData.activo).query(`
+          INSERT INTO cuentas_bancarias (cliente_id, banco, numero_cuenta, tipo_cuenta, titular, activo)
+          OUTPUT INSERTED.*
+          VALUES (@cliente_id, @banco, @numero_cuenta, @tipo_cuenta, @titular, @activo)
+        `);
+
+      const data = result.recordset[0];
+      return CuentaBancariaMapper.toDomain(data);
+    } catch (error) {
+      throw new Error(`Error creando cuenta bancaria: ${error.message}`);
+    }
+  }
+
+  async findCuentasByUsuarioId(usuarioId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("usuario_id", sql.UniqueIdentifier, usuarioId).query(`
+          SELECT c.* FROM cuentas_bancarias c
+          INNER JOIN clientes cl ON c.cliente_id = cl.id
+          WHERE cl.usuario_id = @usuario_id
+          ORDER BY c.created_at DESC
+        `);
+
+      return result.recordset.map(data => CuentaBancariaMapper.toDomain(data));
+    } catch (error) {
+      throw new Error(`Error buscando cuentas bancarias por usuario: ${error.message}`);
+    }
+  }
+
+  async findCuentaParaDebito(cuentaId, clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("cliente_id", sql.UniqueIdentifier, clienteId).query(`
+          SELECT * FROM cuentas_bancarias 
+          WHERE id = @id AND cliente_id = @cliente_id
+        `);
+
+      if (result.recordset.length === 0) {
+        return null;
+      }
+
+      const data = result.recordset[0];
+      return CuentaBancariaMapper.toDomain(data);
+    } catch (error) {
+      throw new Error(`Error buscando cuenta para débito: ${error.message}`);
+    }
+  }
+
+  async updateSaldo(cuentaId, nuevoSaldo) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("saldo", sql.Decimal(10, 2), nuevoSaldo)
+        .query("UPDATE cuentas_bancarias SET saldo = @saldo WHERE id = @id");
+      return true;
+    } catch (error) {
+      throw new Error(`Error actualizando saldo: ${error.message}`);
+    }
+  }
+
+  async findCuentaBancariaById(cuentaId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .query("SELECT * FROM cuentas_bancarias WHERE id = @id");
+
+      if (result.recordset.length === 0) {
+        return null;
+      }
+
+      const data = result.recordset[0];
+      return CuentaBancariaMapper.toDomain(data);
+    } catch (error) {
+      throw new Error(`Error buscando cuenta bancaria: ${error.message}`);
+    }
+  }
+
+  async findCuentasByCliente(clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("cliente_id", sql.UniqueIdentifier, clienteId)
+        .query("SELECT * FROM cuentas_bancarias WHERE cliente_id = @cliente_id ORDER BY created_at DESC");
+
+      return result.recordset.map(data => CuentaBancariaMapper.toDomain(data));
+    } catch (error) {
+      throw new Error(`Error buscando cuentas bancarias: ${error.message}`);
+    }
+  }
+
+  async updateCuentaBancaria(cuentaId, cuentaData) {
+    try {
+      const pool = await getPool();
+
+      const fields = [];
+      const request = pool.request();
+      request.input("id", sql.UniqueIdentifier, cuentaId);
+
+      if (cuentaData.banco !== undefined) {
+        fields.push("banco = @banco");
+        request.input("banco", sql.NVarChar, cuentaData.banco);
+      }
+      if (cuentaData.numero_cuenta !== undefined) {
+        fields.push("numero_cuenta = @numero_cuenta");
+        request.input("numero_cuenta", sql.NVarChar, cuentaData.numero_cuenta);
+      }
+      if (cuentaData.tipo_cuenta !== undefined) {
+        fields.push("tipo_cuenta = @tipo_cuenta");
+        request.input("tipo_cuenta", sql.NVarChar, cuentaData.tipo_cuenta);
+      }
+      if (cuentaData.titular !== undefined) {
+        fields.push("titular = @titular");
+        request.input("titular", sql.NVarChar, cuentaData.titular);
+      }
+      if (cuentaData.activo !== undefined) {
+        fields.push("activo = @activo");
+        request.input("activo", sql.Bit, cuentaData.activo);
+      }
+
+      if (fields.length === 0) {
+        throw new Error("No hay campos para actualizar");
+      }
+
+      const result = await request.query(`
+        UPDATE cuentas_bancarias
+        SET ${fields.join(", ")}, updated_at = GETDATE()
+        OUTPUT INSERTED.*
+        WHERE id = @id
+      `);
+
+      const data = result.recordset[0];
+      return CuentaBancariaMapper.toDomain(data);
+    } catch (error) {
+      throw new Error(`Error actualizando cuenta bancaria: ${error.message}`);
+    }
+  }
+
+  async deleteCuentaBancaria(cuentaId) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .query("DELETE FROM cuentas_bancarias WHERE id = @id");
+      return true;
+    } catch (error) {
+      throw new Error(`Error eliminando cuenta bancaria: ${error.message}`);
+    }
+  }
+
+  async findMonederoByClienteId(clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input("cliente_id", sql.UniqueIdentifier, clienteId)
+        .query(`SELECT TOP 1 * FROM cuentas_bancarias 
+          WHERE cliente_id = @cliente_id 
+          AND LOWER(banco) LIKE '%monedero payflow%'
+          AND tipo_cuenta = 'ahorro'`);
+      if (result.recordset.length === 0) return null;
+      const data = result.recordset[0];
+      return CuentaBancariaMapper.toDomain(data);
+    } catch (error) {
+      throw new Error(`Error buscando monedero: ${error.message}`);
+    }
+  }
+
+  async incrementarSaldo(cuentaId, monto) {
+    try {
+      const pool = await getPool();
+      await pool
+        .request()
+        .input("id", sql.UniqueIdentifier, cuentaId)
+        .input("monto", sql.Decimal(10, 2), monto).query(`
+          UPDATE cuentas_bancarias 
+          SET saldo = saldo + @monto, updated_at = GETDATE()
+          WHERE id = @id
+        `);
+      return true;
+    } catch (error) {
+      throw new Error(`Error incrementando saldo: ${error.message}`);
+    }
+  }
+}
+
+module.exports = SqlServerBankAccountsRepository;
