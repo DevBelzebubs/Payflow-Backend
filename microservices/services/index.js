@@ -19,13 +19,14 @@ const BcpServiceApiClient = require("./src/infrastructure/adapters/outbound/exte
 const ServicesService = require("./src/application/services/ServicesService");
 const ServicesController = require("./src/infrastructure/adapters/inbound/ServicesController");
 const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
+const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
 
 const servicesRepository = new SqlServerServicesRepository();
 const bcpServiceClient = new BcpServiceApiClient();
 const servicesService = new ServicesService({ servicesRepository, bcpServiceClient });
 const servicesController = new ServicesController(servicesService);
 
-app.post("/api/servicios", (req, res) =>
+app.post("/api/servicios", authMiddleware, blockDemo, (req, res) =>
   servicesController.createServicio(req, res)
 );
 app.get("/api/servicios/externos/pendientes", (req, res) =>
@@ -46,13 +47,13 @@ app.get("/api/servicios", (req, res) =>
 app.get("/api/servicios/:idServicio/tipos-entrada", (req, res) =>
   servicesController.getTiposEntrada(req, res)
 );
-app.put("/api/servicios/:idServicio", (req, res) =>
+app.put("/api/servicios/:idServicio", authMiddleware, blockDemo, (req, res) =>
   servicesController.updateServicio(req, res)
 );
-app.delete("/api/servicios/:idServicio", (req, res) =>
+app.delete("/api/servicios/:idServicio", authMiddleware, blockDemo, (req, res) =>
   servicesController.deleteServicio(req, res)
 );
-app.patch("/api/servicios/:idServicio/marcar-pagado", (req, res) =>
+app.patch("/api/servicios/:idServicio/marcar-pagado", authMiddleware, blockDemo, (req, res) =>
   servicesController.marcarComoPagado(req, res)
 );
 

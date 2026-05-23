@@ -108,6 +108,10 @@ class OrdersController {
     try {
       const { clienteId } = req.params;
 
+      if (clienteId === 'demo-cliente-0000') {
+        return res.status(200).json([]);
+      }
+
       const ordenes = await this.ordersService.getOrdenesByCliente(clienteId);
 
       res.status(200).json(ordenes.map((o) => o.toJSON()));

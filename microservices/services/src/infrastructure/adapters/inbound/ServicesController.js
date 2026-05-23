@@ -71,10 +71,13 @@ class ServicesController {
 
   async getAllServicios(req, res) {
     try {
-      const filters = {
-        clienteId: req.query.clienteId,
-        tipo_servicio: req.query.tipo_servicio,
-      };
+      const filters = {};
+      if (req.query.clienteId && req.query.clienteId !== 'demo-cliente-0000') {
+        filters.clienteId = req.query.clienteId;
+      }
+      if (req.query.tipo_servicio) {
+        filters.tipo_servicio = req.query.tipo_servicio;
+      }
 
       const servicios = await this.servicesService.getAllServicios(filters);
 

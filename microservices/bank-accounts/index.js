@@ -11,6 +11,7 @@ const CONSUL_HOST = process.env.CONSUL_HOST || 'localhost';
 const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
 
 const authMiddleware = require('../shared/infrastructure/middleware/authMiddleware');
+const blockDemo = require('../shared/infrastructure/middleware/blockDemo');
 
 const SqlServerBankAccountsRepository = require('./src/infrastructure/adapters/outbound/repositories/SqlServerBankAccountsRepository');
 const BcpAccountApiClient = require('./src/infrastructure/adapters/outbound/external/BcpAccountApiClient');
@@ -28,14 +29,14 @@ const bankAccountsService = new BankAccountsService({ bankAccountsRepository, bc
 const bankAccountsController = new BankAccountsController(bankAccountsService);
 
 app.get('/api/cuentas-bancarias/mis-cuentas', authMiddleware, (req, res) => bankAccountsController.getMyUnifiedAccounts(req, res));
-app.post('/api/cuentas-bancarias', (req, res) => bankAccountsController.createCuentaBancaria(req, res));
-app.post('/api/cuentas-bancarias/debitar', authMiddleware, (req, res) => bankAccountsController.realizarDebito(req, res));
-app.post('/api/cuentas-bancarias/recargar', authMiddleware, (req, res) => bankAccountsController.recargarMonedero(req, res));
+app.post('/api/cuentas-bancarias', authMiddleware, blockDemo, (req, res) => bankAccountsController.createCuentaBancaria(req, res));
+app.post('/api/cuentas-bancarias/debitar', authMiddleware, blockDemo, (req, res) => bankAccountsController.realizarDebito(req, res));
+app.post('/api/cuentas-bancarias/recargar', authMiddleware, blockDemo, (req, res) => bankAccountsController.recargarMonedero(req, res));
 app.get('/api/cuentas-bancarias/cliente/:clienteId', (req, res) => bankAccountsController.getCuentasByCliente(req, res));
 app.get('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.getCuentaBancaria(req, res));
-app.put('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.updateCuentaBancaria(req, res));
-app.delete('/api/cuentas-bancarias/:cuentaId', (req, res) => bankAccountsController.deleteCuentaBancaria(req, res));
-app.patch('/api/cuentas-bancarias/:cuentaId/deactivate', (req, res) => bankAccountsController.deactivateCuentaBancaria(req, res));
+app.put('/api/cuentas-bancarias/:cuentaId', authMiddleware, blockDemo, (req, res) => bankAccountsController.updateCuentaBancaria(req, res));
+app.delete('/api/cuentas-bancarias/:cuentaId', authMiddleware, blockDemo, (req, res) => bankAccountsController.deleteCuentaBancaria(req, res));
+app.patch('/api/cuentas-bancarias/:cuentaId/deactivate', authMiddleware, blockDemo, (req, res) => bankAccountsController.deactivateCuentaBancaria(req, res));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: SERVICE_NAME });

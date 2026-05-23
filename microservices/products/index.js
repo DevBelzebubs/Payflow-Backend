@@ -7,6 +7,9 @@ const ProductsService = require('./src/application/services/ProductsService');
 const ProductsController = require('./src/infrastructure/adapters/inbound/ProductsController');
 const fileUpload = require('express-fileupload');
 
+const authMiddleware = require('../shared/infrastructure/middleware/authMiddleware');
+const blockDemo = require('../shared/infrastructure/middleware/blockDemo');
+
 const app = express();
 const PORT = process.env.PRODUCTS_PORT || 3003;
 
@@ -18,12 +21,12 @@ const productsRepository = new SqlServerProductsRepository();
 const productsService = new ProductsService({ productsRepository });
 const productsController = new ProductsController(productsService);
 
-app.post('/api/productos', (req, res) => productsController.createProducto(req, res));
+app.post('/api/productos', authMiddleware, blockDemo, (req, res) => productsController.createProducto(req, res));
 app.get('/api/productos', (req, res) => productsController.getAllProductos(req, res));
 app.get('/api/productos/:productoId', (req, res) => productsController.getProducto(req, res));
-app.put('/api/productos/:productoId', (req, res) => productsController.updateProducto(req, res));
-app.delete('/api/productos/:productoId', (req, res) => productsController.deleteProducto(req, res));
-app.patch('/api/productos/:productoId/stock', (req, res) => productsController.updateStock(req, res));
+app.put('/api/productos/:productoId', authMiddleware, blockDemo, (req, res) => productsController.updateProducto(req, res));
+app.delete('/api/productos/:productoId', authMiddleware, blockDemo, (req, res) => productsController.deleteProducto(req, res));
+app.patch('/api/productos/:productoId/stock', authMiddleware, blockDemo, (req, res) => productsController.updateStock(req, res));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'products' });

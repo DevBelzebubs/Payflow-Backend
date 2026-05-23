@@ -5,6 +5,18 @@ class BankAccountsController {
 
   async getMyUnifiedAccounts(req, res) {
     try {
+      if (req.user?.rol === 'DEMO') {
+        return res.status(200).json([{
+          id: 'demo-cuenta-0001',
+          banco: 'Monedero PayFlow',
+          numeroCuenta: '****0000',
+          tipoCuenta: 'ahorro',
+          titular: 'Usuario Demo',
+          saldo: 99999.00,
+          activo: true,
+          origen: 'PAYFLOW',
+        }]);
+      }
       const cuentas = await this.bankAccountsService.getMyUnifiedAccounts(req.user);
       res.status(200).json(cuentas);
     } catch (error) {
@@ -60,6 +72,18 @@ class BankAccountsController {
   async getCuentaBancaria(req, res) {
     try {
       const { cuentaId } = req.params;
+      if (cuentaId === 'demo-cuenta-0001') {
+        return res.status(200).json({
+          id: 'demo-cuenta-0001',
+          banco: 'Monedero PayFlow',
+          numeroCuenta: '****0000',
+          tipoCuenta: 'ahorro',
+          titular: 'Usuario Demo',
+          saldo: 99999.00,
+          activo: true,
+          origen: 'PAYFLOW',
+        });
+      }
       const cuenta = await this.bankAccountsService.getCuentaBancariaById(cuentaId);
       if (!cuenta) {
         return res.status(404).json({ error: 'Cuenta bancaria no encontrada' });
@@ -73,6 +97,18 @@ class BankAccountsController {
   async getCuentasByCliente(req, res) {
     try {
       const { clienteId } = req.params;
+      if (clienteId === 'demo-cliente-0000') {
+        return res.status(200).json([{
+          id: 'demo-cuenta-0001',
+          banco: 'Monedero PayFlow',
+          numeroCuenta: '****0000',
+          tipoCuenta: 'ahorro',
+          titular: 'Usuario Demo',
+          saldo: 99999.00,
+          activo: true,
+          origen: 'PAYFLOW',
+        }]);
+      }
       const cuentas = await this.bankAccountsService.getCuentasByCliente(clienteId);
       res.status(200).json(cuentas.map(c => c.toJSON()));
     } catch (error) {

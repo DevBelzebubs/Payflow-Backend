@@ -2,6 +2,7 @@ require("../../database/sqlServerConfig");
 const express = require("express");
 const cors = require("cors");
 const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
+const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
 const SqlServerOrdersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerOrdersRepository");
 const ProductServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ProductServiceHttpClient");
 const ServiceServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ServiceServiceHttpClient");
@@ -42,7 +43,7 @@ const ordersService = new OrdersService({
 });
 const ordersController = new OrdersController(ordersService);
 
-app.post("/api/ordenes", authMiddleware, (req, res) =>
+app.post("/api/ordenes", authMiddleware, blockDemo, (req, res) =>
   ordersController.createOrden(req, res)
 );
 app.post("/api/ordenes/renovar-suscripciones", (req, res) =>
@@ -59,10 +60,10 @@ app.get("/api/ordenes/cliente/:clienteId", (req, res) =>
 );
 app.get("/api/ordenes", (req, res) => ordersController.getAllOrdenes(req, res));
 app.get("/api/admin/ordenes/stats", (req, res) => ordersController.getSalesStats(req, res));
-app.patch("/api/ordenes/:ordenId/estado", (req, res) =>
+app.patch("/api/ordenes/:ordenId/estado", authMiddleware, blockDemo, (req, res) =>
   ordersController.updateOrdenEstado(req, res)
 );
-app.post("/api/ordenes/:ordenId/cancelar", (req, res) =>
+app.post("/api/ordenes/:ordenId/cancelar", authMiddleware, blockDemo, (req, res) =>
   ordersController.cancelOrden(req, res)
 );
 

@@ -12,6 +12,7 @@ const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
 
 const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
 const requireAdmin = require("../shared/infrastructure/middleware/requireAdmin");
+const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
 
 const SqlServerUsersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerUsersRepository");
 const SqlServerAuthRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerAuthRepository");
@@ -42,22 +43,22 @@ const usersController = new UsersController(usersService);
 app.post("/api/clientes/sync", authMiddleware, (req, res) =>
   usersController.syncBcpUser(req, res)
 );
-app.post("/api/clientes", (req, res) =>
+app.post("/api/clientes", authMiddleware, blockDemo, (req, res) =>
   usersController.createCliente(req, res)
 );
 app.get("/api/clientes/usuario/:usuarioId", (req, res) =>
   usersController.getClienteByUsuario(req, res)
 );
-app.put("/api/clientes/:clienteId", (req, res) =>
+app.put("/api/clientes/:clienteId", authMiddleware, blockDemo, (req, res) =>
   usersController.updateCliente(req, res)
 );
-app.put("/api/users/profile", authMiddleware, (req, res) =>
+app.put("/api/users/profile", authMiddleware, blockDemo, (req, res) =>
   usersController.updateProfile(req, res)
 );
 app.get("/api/clientes", (req, res) =>
   usersController.getAllClientes(req, res)
 );
-app.post("/api/administradores", (req, res) =>
+app.post("/api/administradores", authMiddleware, blockDemo, (req, res) =>
   usersController.createAdministrador(req, res)
 );
 app.get("/api/administradores/usuario/:usuarioId", (req, res) =>

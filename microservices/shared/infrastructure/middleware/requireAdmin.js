@@ -13,6 +13,21 @@ const requireAdmin = (...allowedLevels) => {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.user = decoded;
 
+      if (decoded.rol === 'DEMO') {
+        req.user.nivelAcceso = decoded.nivelAcceso || 'demo';
+        if (allowedLevels.length > 0 && !allowedLevels.includes(req.user.nivelAcceso)) {
+          return res.status(403).json({ error: `Acceso denegado: se requiere nivel ${allowedLevels.join(' o ')}` });
+        }
+        if (req.method !== 'GET') {
+          return res.status(200).json({
+            mensaje: 'Éxito',
+            demo: true,
+            id: `demo-${Date.now()}`,
+          });
+        }
+        return next();
+      }
+
       const isAdminByToken = decoded.rol === 'ADMIN' || decoded.rol === 'admin';
       if (!isAdminByToken) {
         try {

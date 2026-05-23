@@ -42,6 +42,7 @@ const authController = new AuthController(authService);
 
 app.post('/api/auth/register', (req, res) => authController.register(req, res));
 app.post('/api/auth/login', (req, res) => authController.login(req, res));
+app.post('/api/auth/demo-login', (req, res) => authController.demoLogin(req, res));
 app.get('/api/auth/verify', (req, res) => authController.verifyToken(req, res));
 
 app.get('/health', (req, res) => {

@@ -91,6 +91,33 @@ class AuthService {
     });
   }
 
+  async demoLogin() {
+    const token = await this.tokenGenerator.generate({
+      userId: 'demo-user-0000',
+      clienteId: 'demo-cliente-0000',
+      email: 'demo@payflow.com',
+      rol: 'DEMO',
+      dni: '00000000',
+      userType: 'PAYFLOW',
+      nivelAcceso: 'demo',
+    });
+    return {
+      user: {
+        id: 'demo-user-0000',
+        email: 'demo@payflow.com',
+        nombre: 'Usuario Demo',
+        telefono: null,
+        activo: true,
+        dni: '00000000',
+        rol: 'DEMO',
+        nivelAcceso: 'demo',
+      },
+      token,
+      clienteId: 'demo-cliente-0000',
+      isNewUser: false,
+    };
+  }
+
   verifyToken(token) {
     return this.tokenGenerator.verify(token);
   }
