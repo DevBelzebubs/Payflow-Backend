@@ -199,6 +199,103 @@ class SqlServerProductsRepository extends IProductsRepositoryPort {
       throw new Error(`Error insertando imágenes de galería: ${error.message}`);
     }
   }
+
+  async hasClientePurchasedProduct(clienteId, productoId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('cliente_id', sql.UniqueIdentifier, clienteId)
+        .input('producto_id', sql.UniqueIdentifier, productoId)
+        .query(`
+          SELECT COUNT(*) AS count
+          FROM ordenes_compra oc
+          JOIN items_orden io ON io.orden_id = oc.id
+          WHERE oc.cliente_id = @cliente_id
+            AND io.producto_id = @producto_id
+            AND oc.estado = 'completado'
+        `);
+      return result.recordset[0].count > 0;
+    } catch (error) {
+      throw new Error(`Error verificando compra: ${error.message}`);
+    }
+  }
+
+  async createResena(clienteId, productoId, data) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('cliente_id', sql.UniqueIdentifier, clienteId)
+        .input('producto_id', sql.UniqueIdentifier, productoId)
+        .input('calificacion', sql.Int, data.calificacion)
+        .input('titulo', sql.NVarChar, data.titulo)
+        .input('comentario', sql.NVarChar, data.comentario)
+        .query(`
+          INSERT INTO reseñas (id, cliente_id, producto_id, calificacion, titulo, comentario, created_at)
+          OUTPUT INSERTED.*
+          VALUES (NEWID(), @cliente_id, @producto_id, @calificacion, @titulo, @comentario, GETDATE())
+        `);
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Error creando reseña: ${error.message}`);
+    }
+  }
+
+  async findResenaById(resenaId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, resenaId)
+        .query('SELECT * FROM reseñas WHERE id = @id');
+      return result.recordset[0] || null;
+    } catch (error) {
+      throw new Error(`Error buscando reseña: ${error.message}`);
+    }
+  }
+
+  async updateResena(resenaId, clienteId, data) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, resenaId)
+        .input('cliente_id', sql.UniqueIdentifier, clienteId)
+        .input('calificacion', sql.Int, data.calificacion)
+        .input('titulo', sql.NVarChar, data.titulo)
+        .input('comentario', sql.NVarChar, data.comentario)
+        .query(`
+          UPDATE reseñas
+          SET calificacion = @calificacion, titulo = @titulo, comentario = @comentario
+          OUTPUT INSERTED.*
+          WHERE id = @id AND cliente_id = @cliente_id
+        `);
+      if (result.recordset.length === 0) {
+        throw new Error('Reseña no encontrada o no pertenece al usuario');
+      }
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Error actualizando reseña: ${error.message}`);
+    }
+  }
+
+  async deleteResena(resenaId, clienteId) {
+    try {
+      const pool = await getPool();
+      const result = await pool
+        .request()
+        .input('id', sql.UniqueIdentifier, resenaId)
+        .input('cliente_id', sql.UniqueIdentifier, clienteId)
+        .query('DELETE FROM reseñas OUTPUT DELETED.* WHERE id = @id AND cliente_id = @cliente_id');
+      if (result.recordset.length === 0) {
+        throw new Error('Reseña no encontrada o no pertenece al usuario');
+      }
+      return true;
+    } catch (error) {
+      throw new Error(`Error eliminando reseña: ${error.message}`);
+    }
+  }
 }
 
 module.exports = SqlServerProductsRepository;

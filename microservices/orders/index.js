@@ -1,9 +1,11 @@
-require("../../database/sqlServerConfig");
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
 const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
+const supabaseClient = require("../../database/supabaseClient");
 const SqlServerOrdersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerOrdersRepository");
+const SupabaseOrdersRepository = require("./src/infrastructure/SupabaseOrdersRepository");
 const ProductServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ProductServiceHttpClient");
 const ServiceServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/ServiceServiceHttpClient");
 const BankAccountServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/BankAccountServiceHttpClient");
@@ -26,7 +28,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const ordersRepository = new SqlServerOrdersRepository();
+const useSupabase = process.env.DATABASE_PROVIDER === 'supabase';
+const ordersRepository = useSupabase
+  ? new SupabaseOrdersRepository(supabaseClient)
+  : new SqlServerOrdersRepository();
 const productService = new ProductServiceHttpClient();
 const serviceService = new ServiceServiceHttpClient();
 const bankAccountService = new BankAccountServiceHttpClient();

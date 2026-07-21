@@ -1,4 +1,4 @@
-require("../../database/sqlServerConfig");
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const Consul = require("consul");
@@ -14,8 +14,11 @@ const authMiddleware = require("../shared/infrastructure/middleware/authMiddlewa
 const requireAdmin = require("../shared/infrastructure/middleware/requireAdmin");
 const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
 
+const supabaseClient = require("../../database/supabaseClient");
 const SqlServerUsersRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerUsersRepository");
 const SqlServerAuthRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerAuthRepository");
+const SupabaseUsersRepository = require("./src/infrastructure/SupabaseUsersRepository");
+const SupabaseAuthRepository = require("../auth/src/infrastructure/adapters/outbound/repositories/SupabaseAuthRepository");
 const BankAccountServiceHttpClient = require("./src/infrastructure/adapters/outbound/external/BankAccountServiceHttpClient");
 const BcryptPasswordHasher = require("../shared/infrastructure/BcryptPasswordHasher");
 const UsersService = require("./src/application/services/UsersService");
@@ -27,8 +30,13 @@ app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
-const usersRepository = new SqlServerUsersRepository();
-const authRepository = new SqlServerAuthRepository();
+const useSupabase = process.env.DATABASE_PROVIDER === 'supabase';
+const usersRepository = useSupabase
+  ? new SupabaseUsersRepository(supabaseClient)
+  : new SqlServerUsersRepository();
+const authRepository = useSupabase
+  ? new SupabaseAuthRepository(supabaseClient)
+  : new SqlServerAuthRepository();
 const bankAccountService = new BankAccountServiceHttpClient();
 const passwordHasher = new BcryptPasswordHasher();
 

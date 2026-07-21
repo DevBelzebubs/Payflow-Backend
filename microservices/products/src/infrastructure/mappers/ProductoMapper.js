@@ -1,4 +1,5 @@
 const Producto = require('../../domain/models/Producto');
+const Reseña = require('../../domain/models/Reseña');
 
 class ProductoMapper {
   static toDomain(data) {
@@ -22,6 +23,19 @@ class ProductoMapper {
       reseñas: typeof data.reseñas === 'string'
         ? JSON.parse(data.reseñas)
         : (data.reseñas || []),
+    });
+  }
+
+  static toResenaDomain(data) {
+    if (!data) return null;
+    return new Reseña({
+      id: data.id,
+      clienteId: data.cliente_id,
+      productoId: data.producto_id,
+      calificacion: data.calificacion,
+      titulo: data.titulo,
+      comentario: data.comentario,
+      createdAt: data.created_at,
     });
   }
 

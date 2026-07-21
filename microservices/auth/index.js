@@ -1,9 +1,11 @@
-require('../../database/sqlServerConfig');
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
 
+const supabaseClient = require('../../database/supabaseClient');
 const SqlServerAuthRepository = require('./src/infrastructure/adapters/outbound/repositories/SqlServerAuthRepository');
+const SupabaseAuthRepository = require('./src/infrastructure/adapters/outbound/repositories/SupabaseAuthRepository');
 const BcryptPasswordHasher = require('../shared/infrastructure/BcryptPasswordHasher');
 const JwtTokenGenerator = require('../shared/infrastructure/JwtTokenGenerator');
 const BcpAuthApiClient = require('./src/infrastructure/adapters/outbound/external/BcpAuthApiClient');
@@ -24,7 +26,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const authRepository = new SqlServerAuthRepository();
+const useSupabase = process.env.DATABASE_PROVIDER === 'supabase';
+const authRepository = useSupabase
+  ? new SupabaseAuthRepository(supabaseClient)
+  : new SqlServerAuthRepository();
 const passwordHasher = new BcryptPasswordHasher();
 const tokenGenerator = new JwtTokenGenerator();
 const bcpAuthClient = new BcpAuthApiClient();

@@ -1,4 +1,4 @@
-require('../../database/sqlServerConfig');
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 
@@ -13,7 +13,9 @@ const consul = new Consul({ host: CONSUL_HOST, port: 8500 });
 const authMiddleware = require('../shared/infrastructure/middleware/authMiddleware');
 const blockDemo = require('../shared/infrastructure/middleware/blockDemo');
 
+const supabaseClient = require('../../database/supabaseClient');
 const SqlServerBankAccountsRepository = require('./src/infrastructure/adapters/outbound/repositories/SqlServerBankAccountsRepository');
+const SupabaseBankAccountsRepository = require('./src/infrastructure/SupabaseBankAccountsRepository');
 const BcpAccountApiClient = require('./src/infrastructure/adapters/outbound/external/BcpAccountApiClient');
 const BankAccountsService = require('./src/application/services/BankAccountsService');
 const BankAccountsController = require('./src/infrastructure/adapters/inbound/BankAccountsController');
@@ -23,7 +25,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const bankAccountsRepository = new SqlServerBankAccountsRepository();
+const useSupabase = process.env.DATABASE_PROVIDER === 'supabase';
+const bankAccountsRepository = useSupabase
+  ? new SupabaseBankAccountsRepository(supabaseClient)
+  : new SqlServerBankAccountsRepository();
 const bcpAccountClient = new BcpAccountApiClient();
 const bankAccountsService = new BankAccountsService({ bankAccountsRepository, bcpAccountClient });
 const bankAccountsController = new BankAccountsController(bankAccountsService);

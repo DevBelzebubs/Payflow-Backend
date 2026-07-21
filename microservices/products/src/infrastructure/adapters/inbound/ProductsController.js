@@ -146,6 +146,63 @@ class ProductsController {
       res.status(400).json({ error: error.message });
     }
   }
+
+  async createResena(req, res) {
+    try {
+      const clienteId = req.user.clienteId || req.user.id;
+      const { productoId } = req.params;
+      const { calificacion, titulo, comentario } = req.body;
+
+      if (!calificacion || !titulo || !comentario) {
+        return res.status(400).json({ error: 'Calificación, título y comentario son requeridos' });
+      }
+
+      const producto = await this.productsService.createResena(clienteId, productoId, {
+        calificacion: parseInt(calificacion, 10),
+        titulo,
+        comentario,
+      });
+
+      res.status(201).json(producto.toJSON());
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async updateResena(req, res) {
+    try {
+      const clienteId = req.user.clienteId || req.user.id;
+      const { resenaId } = req.params;
+      const { calificacion, titulo, comentario } = req.body;
+
+      if (!calificacion || !titulo || !comentario) {
+        return res.status(400).json({ error: 'Calificación, título y comentario son requeridos' });
+      }
+
+      const producto = await this.productsService.updateResena(resenaId, clienteId, {
+        calificacion: parseInt(calificacion, 10),
+        titulo,
+        comentario,
+      });
+
+      res.status(200).json(producto.toJSON());
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
+
+  async deleteResena(req, res) {
+    try {
+      const clienteId = req.user.clienteId || req.user.id;
+      const { resenaId } = req.params;
+
+      const producto = await this.productsService.deleteResena(resenaId, clienteId);
+
+      res.status(200).json(producto.toJSON());
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
+  }
 }
 
 module.exports = ProductsController;

@@ -1,4 +1,4 @@
-require("../../database/sqlServerConfig");
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const Consul = require("consul");
@@ -14,14 +14,19 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+const supabaseClient = require("../../database/supabaseClient");
 const SqlServerServicesRepository = require("./src/infrastructure/adapters/outbound/repositories/SqlServerServicesRepository");
+const SupabaseServicesRepository = require("./src/infrastructure/SupabaseServicesRepository");
 const BcpServiceApiClient = require("./src/infrastructure/adapters/outbound/external/BcpServiceApiClient");
 const ServicesService = require("./src/application/services/ServicesService");
 const ServicesController = require("./src/infrastructure/adapters/inbound/ServicesController");
 const authMiddleware = require("../shared/infrastructure/middleware/authMiddleware");
 const blockDemo = require("../shared/infrastructure/middleware/blockDemo");
 
-const servicesRepository = new SqlServerServicesRepository();
+const useSupabase = process.env.DATABASE_PROVIDER === 'supabase';
+const servicesRepository = useSupabase
+  ? new SupabaseServicesRepository(supabaseClient)
+  : new SqlServerServicesRepository();
 const bcpServiceClient = new BcpServiceApiClient();
 const servicesService = new ServicesService({ servicesRepository, bcpServiceClient });
 const servicesController = new ServicesController(servicesService);
