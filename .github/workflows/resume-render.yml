@@ -1,0 +1,13 @@
+name: Despertar Backend Payflow
+on:
+  schedule:
+    - cron: '0 15 * * 1-5'
+
+jobs:
+  resume:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Reanudar servicio en Render
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/resume \
+          -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}"

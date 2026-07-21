@@ -1,0 +1,13 @@
+name: Suspender Backend Payflow
+on:
+  schedule:
+    - cron: '0 23 * * 1-5'
+
+jobs:
+  suspend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Suspender servicio en Render
+        run: |
+          curl -X POST https://api.render.com/v1/services/${{ secrets.RENDER_SERVICE_ID }}/suspend \
+          -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}"
