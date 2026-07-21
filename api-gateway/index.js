@@ -7,6 +7,7 @@ try {
   const axios = require("axios");
   const authMiddleware = require("../microservices/shared/infrastructure/middleware/authMiddleware");
   const requireAdmin = require("../microservices/shared/infrastructure/middleware/requireAdmin");
+  const blockDemo = require("../microservices/shared/infrastructure/middleware/blockDemo");
   const { resolveService }= require("../utils/ConsulResolver")
   const exhibitionMode = require("../microservices/shared/infrastructure/middleware/exhibitionMode");
   const app = express();
