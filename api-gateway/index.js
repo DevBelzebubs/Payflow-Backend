@@ -8,6 +8,7 @@ try {
   const authMiddleware = require("../microservices/shared/infrastructure/middleware/authMiddleware");
   const requireAdmin = require("../microservices/shared/infrastructure/middleware/requireAdmin");
   const { resolveService }= require("../utils/ConsulResolver")
+  const exhibitionMode = require("../microservices/shared/infrastructure/middleware/exhibitionMode");
   const app = express();
   const PORT = process.env.API_GATEWAY_PORT || 3000;
 
@@ -55,7 +56,7 @@ try {
     }
   };
 
-  app.post("/api/auth/register", async (req, res) => {
+  app.post("/api/auth/register", exhibitionMode, async (req, res) => {
     try {
       const data = await proxyRequest(
         "auth-service",
@@ -116,7 +117,7 @@ try {
     }
   });
   
-  app.post("/api/clientes/sync", authMiddleware, async (req, res) => {
+  app.post("/api/clientes/sync", authMiddleware, exhibitionMode, async (req, res) => {
     try {
       const data = await proxyRequest(
         "users-service",
@@ -132,7 +133,7 @@ try {
     }
   });
 
-  app.post("/api/clientes", authMiddleware, async (req, res) => {
+  app.post("/api/clientes", authMiddleware, blockDemo, exhibitionMode, async (req, res) => {
     try {
       const data = await proxyRequest(
         "users-service",
@@ -804,7 +805,7 @@ try {
     }
   });
   
-  app.post("/api/ordenes", authMiddleware, async (req, res) => {
+  app.post("/api/ordenes", authMiddleware, blockDemo, exhibitionMode, async (req, res) => {
     try {
       const data = await proxyRequest(
         "orders-service",
@@ -940,7 +941,7 @@ try {
     }
   );
 
-  app.post("/api/cuentas-bancarias", authMiddleware, async (req, res) => {
+  app.post("/api/cuentas-bancarias", authMiddleware, blockDemo, exhibitionMode, async (req, res) => {
     try {
       const data = await proxyRequest(
         "bank-accounts-service",
